@@ -9,6 +9,7 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io"
+	"net/http"
 	"strings"
 
 	"github.com/forkcloser/go-licenses/internal/third_party/pkgsite/derrors"
@@ -47,15 +48,18 @@ func fetchMeta(ctx context.Context, client *Client, importPath string) (_ *sourc
 	}
 	uri = uri + "?go-get=1"
 
-	resp, err := client.doURL(ctx, "GET", "https://"+uri, true)
+	// https only, and the tags read whatever the status, as the go command
+	// does: gonum.org serves them on a 404 page.
+	resp, err := client.doURL(ctx, "GET", "https://"+uri, false)
 	if err != nil {
-		resp, err = client.doURL(ctx, "GET", "http://"+uri, false)
-		if err != nil {
-			return nil, err
-		}
+		return nil, err
 	}
 	defer resp.Body.Close()
-	return parseMeta(importPath, resp.Body)
+	sm, err := parseMeta(importPath, resp.Body)
+	if err != nil && resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("status %s: %w", resp.Status, err)
+	}
+	return sm, err
 }
 
 func parseMeta(importPath string, r io.Reader) (sm *sourceMeta, err error) {

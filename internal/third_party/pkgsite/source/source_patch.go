@@ -14,6 +14,8 @@
 
 package source
 
+import "strings"
+
 // This file includes all local additions to source package for google/go-licenses use-cases.
 
 // SetCommit overrides commit to a specified commit. Usually, you should pass your version to
@@ -30,4 +32,51 @@ func (i *Info) SetCommit(commit string) {
 		return
 	}
 	i.commit = commit
+}
+
+// gopkgInInfo resolves a gopkg.in module without asking gopkg.in, whose
+// mapping is fixed (https://labix.org/gopkg.in): gopkg.in/pkg.vN is
+// github.com/go-pkg/pkg, gopkg.in/user/pkg.vN is github.com/user/pkg, and the
+// module's versions are that repository's tags. The live lookup it replaces
+// went through gopkg.in's proxy, which on CI answered 502 after ten seconds or
+// not at all (forkcloser/go-licenses#8). It reports false for any other path,
+// and for a gopkg.in path outside that scheme, which then takes the lookup.
+func gopkgInInfo(modulePath, version string) (*Info, bool) {
+	rest, ok := strings.CutPrefix(modulePath, "gopkg.in/")
+	if !ok {
+		return nil, false
+	}
+
+	user, pkg, hasUser := strings.Cut(rest, "/")
+	if !hasUser {
+		pkg = user
+	}
+
+	dot := strings.LastIndex(pkg, ".v")
+	if dot <= 0 || strings.Contains(pkg, "/") || !isDigits(pkg[dot+2:]) {
+		return nil, false
+	}
+
+	name := pkg[:dot]
+	if !hasUser {
+		user = "go-" + name
+	}
+
+	commit, _ := commitFromVersion(version, "")
+
+	return NewGitHubInfo("https://github.com/"+user+"/"+name, "", commit), true
+}
+
+func isDigits(s string) bool {
+	if s == "" {
+		return false
+	}
+
+	for _, r := range s {
+		if r < '0' || r > '9' {
+			return false
+		}
+	}
+
+	return true
 }

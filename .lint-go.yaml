@@ -63,6 +63,14 @@
 #     - internal/legacy/
 golangci:
   linters:
+    settings:
+      depguard:
+        rules:
+          main:
+            # The house HTTP client with retry and backoff, which the vanity
+            # import lookups go through (pkgsite/source).
+            allow:
+              - github.com/mycophonic/primordium/network/transporter
     exclusions:
       rules:
         # ---------------------------------------------------------------------------
