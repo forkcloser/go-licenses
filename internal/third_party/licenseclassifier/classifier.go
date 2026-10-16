@@ -15,12 +15,9 @@
 package classifier
 
 import (
-	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
-	"path/filepath"
 	"sort"
 	"strings"
 )
@@ -74,10 +71,6 @@ func (c *Classifier) match(in io.Reader) (Results, error) {
 	firstPass := make(map[string]*indexedDocument)
 	for l, d := range c.docs {
 		sim := id.tokenSimilarity(d)
-
-		if c.tc.traceTokenize(l) {
-			c.tc.trace("Token similarity for %s: %.2f", l, sim)
-		}
 
 		if sim >= c.threshold {
 			firstPass[l] = d
@@ -194,7 +187,6 @@ func (c *Classifier) match(in io.Reader) (Results, error) {
 // Classifier provides methods for identifying open source licenses in text
 // content.
 type Classifier struct {
-	tc        *TraceConfiguration
 	dict      *dictionary
 	docs      map[string]*indexedDocument
 	threshold float64
@@ -204,126 +196,12 @@ type Classifier struct {
 // NewClassifier creates a classifier with an empty corpus.
 func NewClassifier(threshold float64) *Classifier {
 	classifier := &Classifier{
-		tc:        new(TraceConfiguration),
 		dict:      newDictionary(),
 		docs:      make(map[string]*indexedDocument),
 		threshold: threshold,
 		q:         computeQ(threshold),
 	}
 	return classifier
-}
-
-// Normalize takes input content and applies the following transforms to aid in
-// identifying license content. The return value of this function is
-// line-separated text which is the basis for position values returned by the
-// classifier.
-//
-// 1. Breaks up long lines of text. This helps with detecting licenses like in
-// TODO(wcn):URL reference
-//
-// 2. Certain ignorable texts are removed to aid matching blocks of text.
-// Introductory lines such as "The MIT License" are removed. Copyright notices
-// are removed since the parties are variable and shouldn't impact matching.
-//
-// It is NOT necessary to call this function to simply identify licenses in a
-// file. It should only be called to aid presenting this information to the user
-// in context (for example, creating diffs of differences to canonical
-// licenses).
-//
-// It is an invariant of the classifier that calling Match(Normalize(in)) will
-// return the same results as Match(in).
-func (c *Classifier) Normalize(in []byte) []byte {
-	doc, err := tokenizeStream(bytes.NewReader(in), false, c.dict, true)
-	if err != nil {
-		panic("should not be reachable, since bytes.NewReader().Read() should never fail")
-	}
-
-	var buf bytes.Buffer
-
-	switch len(doc.Tokens) {
-	case 0:
-		return nil
-	case 1:
-		buf.WriteString(c.dict.getWord(doc.Tokens[0].ID))
-		return buf.Bytes()
-	}
-
-	prevLine := 1
-	buf.WriteString(c.dict.getWord(doc.Tokens[0].ID))
-	for _, t := range doc.Tokens[1:] {
-		// Only write out an EOL token that incremented the line
-		if t.Line == prevLine+1 {
-			buf.WriteString(eol)
-		}
-
-		// Only write tokens that aren't EOL
-		txt := c.dict.getWord(t.ID)
-
-		if txt != eol {
-			// Only put a space between tokens if the previous token was on the same
-			// line. This prevents spaces after an EOL
-			if t.Line == prevLine {
-				buf.WriteString(" ")
-			}
-			buf.WriteString(txt)
-		}
-
-		prevLine = t.Line
-	}
-	return buf.Bytes()
-}
-
-// LoadLicenses adds the contents of the supplied directory to the corpus of the
-// classifier.
-func (c *Classifier) LoadLicenses(dir string) error {
-	var files []string
-	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return nil
-		}
-		if !strings.HasSuffix(path, "txt") {
-			return nil
-		}
-		files = append(files, path)
-		return nil
-	})
-	if err != nil {
-		return err
-	}
-
-	for _, f := range files {
-		relativePath := strings.Replace(f, dir, "", 1)
-		sep := fmt.Sprintf("%c", os.PathSeparator)
-		segments := strings.Split(relativePath, sep)
-		if len(segments) < 3 {
-			c.tc.trace("Insufficient segment count for path: %s", relativePath)
-			continue
-		}
-		category, name, variant := segments[1], segments[2], segments[3]
-		b, err := ioutil.ReadFile(f)
-		if err != nil {
-			return err
-		}
-
-		c.AddContent(category, name, variant, []byte(string(b)))
-	}
-	return nil
-}
-
-// SetTraceConfiguration installs a tracing configuration for the classifier.
-func (c *Classifier) SetTraceConfiguration(in *TraceConfiguration) {
-	c.tc = in
-	c.tc.init()
-}
-
-// Match finds matches within an unknown text. This will not modify the contents
-// of the supplied byte slice.
-func (c *Classifier) Match(in []byte) Results {
-	// Since bytes.NewReader().Read() will never return an error, tokenizeStream
-	// will never return an error so it's okay to ignore the return value in this
-	// case.
-	res, _ := c.MatchFrom(bytes.NewReader(in))
-	return res
 }
 
 // MatchFrom finds matches within the read content.

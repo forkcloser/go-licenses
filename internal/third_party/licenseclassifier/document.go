@@ -114,19 +114,8 @@ func (c *Classifier) addDocument(category, name, variant string, id *indexedDocu
 	c.docs[indexName] = id
 }
 
-// createTargetIndexedDocument creates an indexed document without adding the
-// words to the classifier dictionary. This should be used for matching targets, not
-// populating the corpus.
-func (c *Classifier) createTargetIndexedDocument(in []byte) *indexedDocument {
-	doc, _ := tokenizeStream(bytes.NewReader(in), true, c.dict, false)
-	return doc
-}
-
 func (c *Classifier) generateDocName(category, name, variant string) string {
 	return fmt.Sprintf("%s%c%s%c%s", category, os.PathSeparator, name, os.PathSeparator, variant)
-}
-func (c *Classifier) getIndexedDocument(category, name, variant string) *indexedDocument {
-	return c.docs[c.generateDocName(category, name, variant)]
 }
 
 // dictionary is used to intern all the token words encountered in the text corpus.

@@ -72,6 +72,11 @@ golangci:
             allow:
               - github.com/mycophonic/primordium/network/transporter
     exclusions:
+      paths:
+        # licenseclassifier v2.0.0, vendored: kept as upstream wrote it, so its
+        # diff against the release is exactly the local modifications its
+        # README lists.
+        - internal/third_party/licenseclassifier/
       rules:
         # ---------------------------------------------------------------------------
         # ONBOARDING BACKLOG. Not a judgment: these are the findings the baseline
@@ -288,16 +293,17 @@ golangci:
             - gocognit # 1
             - gosec # 1
             - mnd # 1
-licenses:
-  ignore:
-    # ONBOARDING BACKLOG, not a judgment: davecgh/go-spew is ISC, which the
-    # baseline does not carry, and a project cannot admit a licence through a
-    # carve-out. Unlike yamlfmt's, it is not test-only: licenseclassifier/v2,
-    # the classifier go-licenses runs on, imports it, so it leaves the graph
-    # only if the baseline admits ISC or the classifier stops importing it.
-    - github.com/davecgh/go-spew
+  formatters:
+    exclusions:
+      paths:
+        # licenseclassifier v2.0.0, vendored: see the linters' exclusion above.
+        - internal/third_party/licenseclassifier/
 nilaway:
   exclude-errors-in-files:
+    # licenseclassifier v2.0.0, vendored: see the linters' exclusion above. Its
+    # three findings are one flow, AddContent dropping tokenizeStream's error,
+    # which a bytes.Reader never returns.
+    - internal/third_party/licenseclassifier/
     # ONBOARDING BACKLOG, not a judgment: NilAway's 5 findings at enrolment,
     # all in the vendored pkgsite source package; NilAway has no per-line
     # suppression, so the file is out until alignment reads them.

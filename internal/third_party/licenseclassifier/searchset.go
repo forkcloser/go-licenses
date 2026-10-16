@@ -19,8 +19,6 @@ import (
 	"hash/crc32"
 	"math"
 	"sort"
-
-	"github.com/davecgh/go-spew/spew"
 )
 
 // searchSet is a set of q-grams that have hashes associated with them,
@@ -171,9 +169,6 @@ func (m matchRanges) Less(i, j int) bool {
 // are best potential matches to the source (known) text.
 func (c *Classifier) findPotentialMatches(src, target *searchSet, confidence float64) matchRanges {
 	matchedRanges := c.getMatchedRanges(src, target, confidence, src.q)
-	if c.tc.traceSearchset(src.origin) {
-		c.tc.trace("matchedRanges = %s", spew.Sdump(matchedRanges))
-	}
 	if len(matchedRanges) == 0 {
 		return nil
 	}
@@ -190,9 +185,6 @@ func (c *Classifier) findPotentialMatches(src, target *searchSet, confidence flo
 		}
 	}
 
-	if c.tc.traceSearchset(src.origin) {
-		c.tc.trace("finalized matchedRanges for %s: %d = %s", src.origin, len(src.Tokens), spew.Sdump(matchedRanges))
-	}
 	return matchedRanges
 }
 
@@ -216,9 +208,6 @@ func (c *Classifier) fuseRanges(origin string, matched matchRanges, confidence f
 			}
 		}
 	}
-
-	filterDrops := 0
-	filterPasses := 0
 
 	// For each hit detected, compare it against all other previous hits to see if it can be part of match
 	// or represents a group that is eligible for matching and having other hits contribute to it.
@@ -245,11 +234,9 @@ func (c *Classifier) fuseRanges(origin string, matched matchRanges, confidence f
 		// part of the target document for a viable match, so this match is a
 		// spurious hit and can be discarded.
 		if !filter[off] {
-			filterDrops++
 			continue
 		}
 
-		filterPasses++
 		unclaimed := true
 
 		for _, c := range claimed {
@@ -306,11 +293,6 @@ func (c *Classifier) fuseRanges(origin string, matched matchRanges, confidence f
 		}
 	}
 	sort.Sort(claimed)
-	if c.tc.traceSearchset(origin) {
-		c.tc.trace("filterPasses = %+v", filterPasses)
-		c.tc.trace("filterDrops = %+v", filterDrops)
-		c.tc.trace("claimed = %s", spew.Sdump(claimed))
-	}
 	return claimed
 }
 
@@ -318,17 +300,9 @@ func (c *Classifier) fuseRanges(origin string, matched matchRanges, confidence f
 // text. The ranges returned are ordered from the entries with the most matched
 // tokens to the least.
 func (c *Classifier) getMatchedRanges(src, target *searchSet, confidence float64, q int) matchRanges {
-	shouldTrace := c.tc.traceSearchset(src.origin)
-
-	if shouldTrace {
-		c.tc.trace("src.origin = %+v", src.origin)
-	}
 	// Assemble a list of all the matched q-grams without any consideration to
 	// error tolerances.
 	matched := targetMatchedRanges(src, target)
-	if shouldTrace {
-		c.tc.trace("matched = %s", spew.Sdump(matched))
-	}
 	if len(matched) == 0 {
 		return nil
 	}
@@ -348,10 +322,6 @@ func (c *Classifier) getMatchedRanges(src, target *searchSet, confidence float64
 
 	runs := c.detectRuns(src.origin, matched, len(target.Tokens), len(src.Tokens), confidence, q)
 
-	if shouldTrace {
-		c.tc.trace("runs = %d: %s", len(runs), spew.Sdump(runs))
-	}
-
 	// If there are no target runs of source tokens, we're done.
 	if len(runs) == 0 {
 		return nil
@@ -362,14 +332,10 @@ func (c *Classifier) getMatchedRanges(src, target *searchSet, confidence float64
 	// produce large enough runs that pass the confidence threshold.
 
 	fr := c.fuseRanges(src.origin, matched, confidence, len(src.Tokens), runs, len(target.Tokens))
-	if shouldTrace {
-		c.tc.trace("fr = %s", spew.Sdump(fr))
-	}
 	return fr
 }
 
 func (c *Classifier) detectRuns(origin string, matched matchRanges, targetLength, subsetLength int, threshold float64, q int) []matchRange {
-	shouldTrace := c.tc.traceSearchset(origin)
 	hits := make([]bool, targetLength)
 	for _, m := range matched {
 		for idx := m.TargetStart; idx < m.TargetEnd; idx++ {
@@ -384,18 +350,10 @@ func (c *Classifier) detectRuns(origin string, matched matchRanges, targetLength
 
 	total := 0
 	target := int(float64(subsetLength) * threshold)
-	if shouldTrace {
-		c.tc.trace("target = %+v", target)
-		c.tc.trace("targetLength = %+v", targetLength)
-		c.tc.trace("subsetLength = %+v", subsetLength)
-	}
 
 	// If we don't have at least 1 subset (i.e. the target is shorter than the
 	// source) just analyze what we have.
 	if len(hits) < subsetLength {
-		if shouldTrace {
-			c.tc.trace("trimmed search length from %d to %d", subsetLength, len(hits))
-		}
 		subsetLength = len(hits)
 	}
 	// Initialize our sliding window value.
