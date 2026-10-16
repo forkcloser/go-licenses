@@ -1,0 +1,7 @@
+# This repository's own link exclusions, merged with the canonical
+# .limen/lychee.toml by `just do security links`.
+# Only what applies to this repository alone belongs here.
+
+# The licence texts the vendored classifier embeds are matching data: their
+# URLs are part of each licence's wording, kept as written, dead or not.
+exclude_path = ['internal/third_party/licenseclassifier/assets/']

@@ -17,8 +17,8 @@ package licenses
 import (
 	"os"
 
-	licenseclassifier "github.com/google/licenseclassifier/v2"
-	"github.com/google/licenseclassifier/v2/assets"
+	licenseclassifier "github.com/forkcloser/go-licenses/internal/third_party/licenseclassifier"
+	"github.com/forkcloser/go-licenses/internal/third_party/licenseclassifier/assets"
 )
 
 // Classifier can detect the type of a software license.

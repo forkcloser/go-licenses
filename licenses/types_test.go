@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/google/licenseclassifier/v2/assets"
+	"github.com/forkcloser/go-licenses/internal/third_party/licenseclassifier/assets"
 )
 
 func TestTypes(t *testing.T) {
