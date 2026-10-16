@@ -42,7 +42,7 @@ import (
 	_ "golang.org/x/exp/slices"
 	_ "golang.org/x/oauth2"
 	_ "golang.org/x/sync/errgroup"
-	_ "gomodules.xyz/jsonpatch/v2"
+	_ "gomodules.xyz/jsonpatch/v3"
 	_ "google.golang.org/api"
 	_ "k8s.io/api"
 	_ "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
