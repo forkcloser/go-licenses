@@ -56,7 +56,7 @@ import (
 	_ "k8s.io/utils/pointer"
 	_ "sigs.k8s.io/controller-runtime"
 	_ "sigs.k8s.io/gateway-api/apis/v1beta1"
-	_ "sigs.k8s.io/structured-merge-diff/v4/fieldpath"
+	_ "sigs.k8s.io/structured-merge-diff/v7/fieldpath"
 )
 
 func main() {
