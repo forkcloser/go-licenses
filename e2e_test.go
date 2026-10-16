@@ -22,6 +22,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -57,7 +58,7 @@ func TestReportCommandE2E(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer os.RemoveAll(tempDir)
-	goLicensesPath := filepath.Join(tempDir, "go-licenses")
+	goLicensesPath := filepath.Join(tempDir, goLicensesBinary())
 	cmd := exec.Command("go", "build", "-o", goLicensesPath)
 	_, err = cmd.Output()
 	if err != nil {
@@ -78,6 +79,7 @@ func TestReportCommandE2E(t *testing.T) {
 			}
 			args := append([]string{"report", "."}, tt.args...)
 			cmd = exec.Command(goLicensesPath, args...)
+			cmd.Env = goldenPlatform()
 			// Capture stderr to buffer.
 			var stderr bytes.Buffer
 			cmd.Stderr = &stderr
@@ -143,7 +145,7 @@ func TestCheckCommandE2E(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer os.RemoveAll(tempDir)
-	goLicensesPath := filepath.Join(tempDir, "go-licenses")
+	goLicensesPath := filepath.Join(tempDir, goLicensesBinary())
 	cmd := exec.Command("go", "build", "-o", goLicensesPath)
 	_, err = cmd.Output()
 	if err != nil {
@@ -166,6 +168,7 @@ func TestCheckCommandE2E(t *testing.T) {
 			// Logs are not deterministic for this golden test.
 			args := append([]string{"--logtostderr=false", "--stderrthreshold=10", "check", "."}, tt.args...)
 			cmd = exec.Command(goLicensesPath, args...)
+			cmd.Env = goldenPlatform()
 			// Capture stderr to buffer.
 			var stderr bytes.Buffer
 			cmd.Stderr = &stderr
@@ -222,4 +225,21 @@ func filterOutput(output string) string {
 		ReplaceAllString(output, "")
 
 	return output
+}
+
+// goLicensesBinary is the built CLI's file name: Windows runs only a file
+// with an executable extension.
+func goLicensesBinary() string {
+	if runtime.GOOS == "windows" {
+		return "go-licenses.exe"
+	}
+	return "go-licenses"
+}
+
+// goldenPlatform is the environment the CLI runs in: the goldens are
+// linux/amd64's, and the packages a module loads, so the libraries it
+// reports, change with the platform (golang.org/x/sys/cpu is imported on
+// amd64 only).
+func goldenPlatform() []string {
+	return append(os.Environ(), "GOOS=linux", "GOARCH=amd64")
 }
