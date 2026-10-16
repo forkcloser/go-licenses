@@ -38,6 +38,7 @@ func (c classifierStub) Identify(licensePath string) ([]License, error) {
 	if err != nil {
 		return nil, err
 	}
+	relPath = filepath.ToSlash(relPath)
 	if licenses, ok := c.licenses[relPath]; ok {
 		return licenses, c.errors[relPath]
 	}

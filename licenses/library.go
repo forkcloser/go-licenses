@@ -178,7 +178,7 @@ func Libraries(
 
 			if module.Dir == "" {
 				// A known cause is that the module is vendored, so some information is lost.
-				isVendored := strings.Contains(pkgDir, "/vendor/")
+				isVendored := strings.Contains(pkgDir, string(filepath.Separator)+"vendor"+string(filepath.Separator))
 				if !isVendored {
 					klog.Warningf(
 						"module %s does not have dir and it's not vendored, cannot discover the license URL. Report to go-licenses developer if you see this.",
@@ -421,7 +421,7 @@ func (l *Library) FileURL(ctx context.Context, cl *source.Client, filePath strin
 	}
 	// TODO: there are still rare cases this may result in an incorrect URL.
 	// https://github.com/google/go-licenses/issues/73#issuecomment-1005587408
-	return remote.FileURL(relativePath), nil
+	return remote.FileURL(filepath.ToSlash(relativePath)), nil
 }
 
 func (l *Library) Version() string {
