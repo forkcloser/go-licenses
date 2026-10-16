@@ -516,15 +516,7 @@ func TestModuleInfoDynamic(t *testing.T) {
 				templates: githubURLTemplates,
 			},
 		},
-		{
-			"alice.org/pkg/http",
-			&Info{
-				repoURL:   "https://github.com/alice/pkg",
-				moduleDir: "http",
-				commit:    "http/v1.2.3",
-				templates: githubURLTemplates,
-			},
-		},
+		{"alice.org/pkg/http", nil},
 		{
 			"alice.org/pkg/source",
 			// Has a go-source tag; we try to use the templates.
@@ -825,12 +817,12 @@ var testWeb = map[string]string{
 	"https://alice.org/pkg": `<head> <meta name="go-import" content="alice.org/pkg git https://github.com/alice/pkg"></head>`,
 	// Package in sub-directory.
 	"https://alice.org/pkg/sub": `<head> <meta name="go-import" content="alice.org/pkg git https://github.com/alice/pkg"><body>`,
-	// Fallback to http.
+	// Served over plain http only, which the lookup never tries.
 	"http://alice.org/pkg/http": `<head> <meta name="go-import" content="alice.org/pkg git https://github.com/alice/pkg">`,
 	// Meta tag in sub-directory does not match meta tag at root.
 	"https://alice.org/pkg/mismatch": `<head> <meta name="go-import" content="alice.org/pkg hg https://github.com/alice/pkg">`,
 	// More than one matching meta tag.
-	"http://alice.org/pkg/multiple": `<head> ` +
+	"https://alice.org/pkg/multiple": `<head> ` +
 		`<meta name="go-import" content="alice.org/pkg git https://github.com/alice/pkg">` +
 		`<meta name="go-import" content="alice.org/pkg git https://github.com/alice/pkg">`,
 	// Package with go-source meta tag.
@@ -860,7 +852,7 @@ var testWeb = map[string]string{
 		`<meta name="go-import" content="alice.org/pkg git https://github.com/alice/pkg">`,
 
 	// go-source repo defaults to go-import
-	"http://alice.org/pkg/default": `<head>
+	"https://alice.org/pkg/default": `<head>
 		<meta name="go-import" content="alice.org/pkg git https://github.com/alice/pkg">
 		<meta name="go-source" content="alice.org/pkg _ foo bar">
 	</head>`,
@@ -881,7 +873,7 @@ var testWeb = map[string]string{
 		`</head>`,
 
 	// Multiple go-import meta tags; one of which is a vgo-special mod vcs type
-	"http://myitcv.io/blah2": `<!DOCTYPE html><html><head>` +
+	"https://myitcv.io/blah2": `<!DOCTYPE html><html><head>` +
 		`<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>` +
 		`<meta name="go-import" content="myitcv.io/blah2 git https://github.com/myitcv/x">` +
 		`<meta name="go-import" content="myitcv.io/blah2 mod https://raw.githubusercontent.com/myitcv/pubx/master">` +

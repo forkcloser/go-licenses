@@ -31,7 +31,7 @@ import (
 	"strings"
 	"time"
 
-	"go.opencensus.io/plugin/ochttp"
+	"github.com/mycophonic/primordium/network/transporter"
 	"go.opencensus.io/trace"
 	"golang.org/x/net/context/ctxhttp"
 
@@ -71,14 +71,24 @@ type Client struct {
 	httpClient *http.Client
 }
 
-// New constructs a *Client using the provided timeout.
+// longestRetryAfter is the longest Retry-After a lookup waits out; a longer
+// one fails the lookup.
+const longestRetryAfter = 10 * time.Second
+
+// New constructs a *Client using the provided timeout, which bounds a
+// request and its retries together. Requests go through primordium's
+// transporter: a 5xx, a 429 (its Retry-After honoured) or a transport error
+// that can change is retried three times, after about 1, 2 and 4 seconds.
 func NewClient(timeout time.Duration) *Client {
-	return &Client{
-		httpClient: &http.Client{
-			Transport: &ochttp.Transport{},
-			Timeout:   timeout,
-		},
-	}
+	httpClient := transporter.NewClient(transporter.Options{
+		MaxRetries:     3,
+		InitialBackoff: time.Second,
+		MaxBackoff:     longestRetryAfter,
+		UserAgent:      "go-licenses",
+	})
+	httpClient.Timeout = timeout
+
+	return &Client{httpClient: httpClient}
 }
 
 // NewClientForTesting returns a Client suitable for testing. It returns the
