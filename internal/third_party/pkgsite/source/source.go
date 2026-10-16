@@ -31,12 +31,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/go-licenses/v2/internal/third_party/pkgsite/derrors"
-	"github.com/google/go-licenses/v2/internal/third_party/pkgsite/stdlib"
-	"github.com/google/go-licenses/v2/internal/third_party/pkgsite/version"
 	"go.opencensus.io/plugin/ochttp"
 	"go.opencensus.io/trace"
 	"golang.org/x/net/context/ctxhttp"
+
+	"github.com/forkcloser/go-licenses/internal/third_party/pkgsite/derrors"
+	"github.com/forkcloser/go-licenses/internal/third_party/pkgsite/stdlib"
+	"github.com/forkcloser/go-licenses/internal/third_party/pkgsite/version"
 )
 
 // Info holds source information about a module, used to generate URLs referring
@@ -242,7 +243,8 @@ func adjustGoRepoInfo(info *Info, modulePath string, isHash bool) {
 
 	// rawURL needs to be set before info.templates is changed.
 	rawURL := fmt.Sprintf(
-		"https://github.com/golang/%s/raw/{commit}/{file}", strings.TrimPrefix(suffix, "x/"))
+		"https://github.com/golang/%s/raw/{commit}/{file}", strings.TrimPrefix(suffix, "x/"),
+	)
 
 	info.repoURL = fmt.Sprintf("https://cs.opensource.google/go/%s", suffix)
 	info.templates = csopensourceTemplates
@@ -285,7 +287,9 @@ func adjustGoRepoInfo(info *Info, modulePath string, isHash bool) {
 //
 // then repo="example.com/a/b" and relativeModulePath="c"; the ".git" is omitted, since it is neither
 // part of the repo nor part of the relative path to the module within the repo.
-func matchStatic(moduleOrRepoPath string) (repo, relativeModulePath string, _ urlTemplates, transformCommit transformCommitFunc, _ error) {
+func matchStatic(
+	moduleOrRepoPath string,
+) (repo, relativeModulePath string, _ urlTemplates, transformCommit transformCommitFunc, _ error) {
 	for _, pat := range patterns {
 		matches := pat.re.FindStringSubmatch(moduleOrRepoPath)
 		if matches == nil {
@@ -422,7 +426,8 @@ func matchLegacyTemplates(ctx context.Context, sm *sourceMeta) (_ urlTemplates, 
 	rep := strings.NewReplacer(
 		"{/dir}/{file}", "/{file}",
 		"{dir}/{file}", "{file}",
-		"{/dir}", "/{dir}")
+		"{/dir}", "/{dir}",
+	)
 	line := rep.Replace(sm.fileTemplate)
 	file := line
 	if i := strings.LastIndexByte(line, '#'); i > 0 {

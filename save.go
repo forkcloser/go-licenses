@@ -22,10 +22,11 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/google/go-licenses/v2/licenses"
 	"github.com/otiai10/copy"
 	"github.com/spf13/cobra"
 	"k8s.io/klog/v2"
+
+	"github.com/forkcloser/go-licenses/licenses"
 )
 
 var (
@@ -48,7 +49,8 @@ var (
 )
 
 func init() {
-	saveCmd.Flags().StringVar(&savePath, "save_path", "", "Directory into which files should be saved that are required by license terms")
+	saveCmd.Flags().
+		StringVar(&savePath, "save_path", "", "Directory into which files should be saved that are required by license terms")
 	if err := saveCmd.MarkFlagRequired("save_path"); err != nil {
 		klog.Fatal(err)
 	}
@@ -56,13 +58,13 @@ func init() {
 		klog.Fatal(err)
 	}
 
-	saveCmd.Flags().BoolVar(&overwriteSavePath, "force", false, "Delete the destination directory if it already exists.")
+	saveCmd.Flags().
+		BoolVar(&overwriteSavePath, "force", false, "Delete the destination directory if it already exists.")
 
 	rootCmd.AddCommand(saveCmd)
 }
 
 func saveMain(_ *cobra.Command, args []string) error {
-
 	if overwriteSavePath {
 		if err := os.RemoveAll(savePath); err != nil {
 			return err
@@ -145,7 +147,7 @@ func copySrc(src, dest string) error {
 		Skip: func(_ os.FileInfo, src, dest string) (bool, error) {
 			return strings.HasSuffix(src, ".git"), nil
 		},
-		AddPermission: 0600,
+		AddPermission: 0o600,
 	}
 	if err := copy.Copy(src, dest, opt); err != nil {
 		return err

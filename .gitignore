@@ -1,1 +1,6 @@
 .idea
+
+# Required by limen (book/mandatory-files.md, ".gitignore").
+/build
+/_scratch
+.claude

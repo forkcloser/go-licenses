@@ -22,6 +22,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -57,7 +58,7 @@ func TestReportCommandE2E(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer os.RemoveAll(tempDir)
-	goLicensesPath := filepath.Join(tempDir, "go-licenses")
+	goLicensesPath := filepath.Join(tempDir, goLicensesBinary())
 	cmd := exec.Command("go", "build", "-o", goLicensesPath)
 	_, err = cmd.Output()
 	if err != nil {
@@ -78,6 +79,7 @@ func TestReportCommandE2E(t *testing.T) {
 			}
 			args := append([]string{"report", "."}, tt.args...)
 			cmd = exec.Command(goLicensesPath, args...)
+			cmd.Env = goldenPlatform()
 			// Capture stderr to buffer.
 			var stderr bytes.Buffer
 			cmd.Stderr = &stderr
@@ -89,7 +91,7 @@ func TestReportCommandE2E(t *testing.T) {
 			}
 			got := string(output)
 			if *update {
-				err := os.WriteFile(tt.goldenFilePath, output, 0600)
+				err := os.WriteFile(tt.goldenFilePath, output, 0o600)
 				if err != nil {
 					t.Fatalf("writing golden file: %s", err)
 				}
@@ -121,12 +123,32 @@ func TestCheckCommandE2E(t *testing.T) {
 		wantExitCode   int
 	}{
 		{"testdata/modules/hello01", nil, "output-check-forbidden.txt", 0},
-		{"testdata/modules/hello01", []string{"--disallowed_types=forbidden,notice"}, "output-check-notice-forbidden.txt", 1},
+		{
+			"testdata/modules/hello01",
+			[]string{"--disallowed_types=forbidden,notice"},
+			"output-check-notice-forbidden.txt",
+			1,
+		},
 		{"testdata/modules/cli02", nil, "output-check-forbidden.txt", 0},
-		{"testdata/modules/cli02", []string{"--disallowed_types=forbidden,notice"}, "output-check-notice-forbidden.txt", 1},
+		{
+			"testdata/modules/cli02",
+			[]string{"--disallowed_types=forbidden,notice"},
+			"output-check-notice-forbidden.txt",
+			1,
+		},
 		{"testdata/modules/cli02", []string{"--allowed_licenses=Apache-2.0"}, "output-check-license-names-1.txt", 1},
-		{"testdata/modules/cli02", []string{"--allowed_licenses=Apache-2.0,MIT"}, "output-check-license-names-2.txt", 1},
-		{"testdata/modules/cli02", []string{"--allowed_licenses= Apache-2.0, MIT"}, "output-check-license-names-2.txt", 1},
+		{
+			"testdata/modules/cli02",
+			[]string{"--allowed_licenses=Apache-2.0,MIT"},
+			"output-check-license-names-2.txt",
+			1,
+		},
+		{
+			"testdata/modules/cli02",
+			[]string{"--allowed_licenses= Apache-2.0, MIT"},
+			"output-check-license-names-2.txt",
+			1,
+		},
 		{"testdata/modules/nolicense05", nil, "output-check.txt", 1},
 		{"testdata/modules/complex", nil, "output-check-complex.txt", 0},
 	}
@@ -143,7 +165,7 @@ func TestCheckCommandE2E(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer os.RemoveAll(tempDir)
-	goLicensesPath := filepath.Join(tempDir, "go-licenses")
+	goLicensesPath := filepath.Join(tempDir, goLicensesBinary())
 	cmd := exec.Command("go", "build", "-o", goLicensesPath)
 	_, err = cmd.Output()
 	if err != nil {
@@ -166,6 +188,7 @@ func TestCheckCommandE2E(t *testing.T) {
 			// Logs are not deterministic for this golden test.
 			args := append([]string{"--logtostderr=false", "--stderrthreshold=10", "check", "."}, tt.args...)
 			cmd = exec.Command(goLicensesPath, args...)
+			cmd.Env = goldenPlatform()
 			// Capture stderr to buffer.
 			var stderr bytes.Buffer
 			cmd.Stderr = &stderr
@@ -185,12 +208,16 @@ func TestCheckCommandE2E(t *testing.T) {
 			}
 
 			if exitCode != tt.wantExitCode {
-				t.Fatalf("unexpected exit code running go-licenses check, expected %d but got %d", tt.wantExitCode, exitCode)
+				t.Fatalf(
+					"unexpected exit code running go-licenses check, expected %d but got %d",
+					tt.wantExitCode,
+					exitCode,
+				)
 			}
 
 			got := filterOutput(stderr.String())
 			if *update {
-				err := os.WriteFile(tt.goldenFilePath, []byte(got), 0600)
+				err := os.WriteFile(tt.goldenFilePath, []byte(got), 0o600)
 				if err != nil {
 					t.Fatalf("writing golden file: %s", err)
 				}
@@ -222,4 +249,21 @@ func filterOutput(output string) string {
 		ReplaceAllString(output, "")
 
 	return output
+}
+
+// goLicensesBinary is the built CLI's file name: Windows runs only a file
+// with an executable extension.
+func goLicensesBinary() string {
+	if runtime.GOOS == "windows" {
+		return "go-licenses.exe"
+	}
+	return "go-licenses"
+}
+
+// goldenPlatform is the environment the CLI runs in: the goldens are
+// linux/amd64's, and the packages a module loads, so the libraries it
+// reports, change with the platform (golang.org/x/sys/cpu is imported on
+// amd64 only).
+func goldenPlatform() []string {
+	return append(os.Environ(), "GOOS=linux", "GOARCH=amd64")
 }

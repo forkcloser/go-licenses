@@ -22,10 +22,11 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/google/go-licenses/v2/internal/third_party/pkgsite/source"
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/tools/go/packages"
 	"k8s.io/klog/v2"
+
+	"github.com/forkcloser/go-licenses/internal/third_party/pkgsite/source"
 )
 
 // Library is a collection of packages covered by the same license file.
@@ -61,7 +62,13 @@ func (e PackagesError) Error() string {
 // A library is a collection of one or more packages covered by the same license file.
 // Packages not covered by a license will be returned as individual libraries.
 // Standard library packages will be ignored.
-func Libraries(ctx context.Context, classifier Classifier, includeTests bool, ignoredPaths []string, importPaths ...string) ([]*Library, error) {
+func Libraries(
+	ctx context.Context,
+	classifier Classifier,
+	includeTests bool,
+	ignoredPaths []string,
+	importPaths ...string,
+) ([]*Library, error) {
 	// These are the steps we take to find libraries:
 	// 1. we list all modules and all packages
 	// 2. for each package, we find a list of candidates
@@ -138,7 +145,11 @@ func Libraries(ctx context.Context, classifier Classifier, includeTests bool, ig
 			}
 
 			if len(p.OtherFiles) > 0 {
-				klog.Warningf("%q contains non-Go code that can't be inspected for further dependencies:\n%s", p.PkgPath, strings.Join(p.OtherFiles, "\n"))
+				klog.Warningf(
+					"%q contains non-Go code that can't be inspected for further dependencies:\n%s",
+					p.PkgPath,
+					strings.Join(p.OtherFiles, "\n"),
+				)
 			}
 
 			var pkgDir string
@@ -156,7 +167,10 @@ func Libraries(ctx context.Context, classifier Classifier, includeTests bool, ig
 
 			if p.Module == nil {
 				otherErrorOccurred = true
-				klog.Errorf("Package %s does not have module info. Non go modules projects are no longer supported. For feedback, refer to https://github.com/google/go-licenses/issues/128.", p.PkgPath)
+				klog.Errorf(
+					"Package %s does not have module info. Non go modules projects are no longer supported. For feedback, refer to https://github.com/google/go-licenses/issues/128.",
+					p.PkgPath,
+				)
 				return false
 			}
 
@@ -166,7 +180,10 @@ func Libraries(ctx context.Context, classifier Classifier, includeTests bool, ig
 				// A known cause is that the module is vendored, so some information is lost.
 				isVendored := strings.Contains(pkgDir, "/vendor/")
 				if !isVendored {
-					klog.Warningf("module %s does not have dir and it's not vendored, cannot discover the license URL. Report to go-licenses developer if you see this.", module.Path)
+					klog.Warningf(
+						"module %s does not have dir and it's not vendored, cannot discover the license URL. Report to go-licenses developer if you see this.",
+						module.Path,
+					)
 				} else {
 					// This is vendored. Handle this known special case.
 
@@ -175,10 +192,12 @@ func Libraries(ctx context.Context, classifier Classifier, includeTests bool, ig
 					// For a normal package:
 					// * if it's not in a module, lib.module == nil
 					// * if it's in a module, lib.module.Dir != ""
-					// Only vendored modules will have lib.module != nil && lib.module.Path != "" && lib.module.Dir == "" as far as I know.
+					// Only vendored modules will have lib.module != nil && lib.module.Path != "" && lib.module.Dir ==
+					// "" as far as I know.
 					// So the if condition above is already very strict for vendored packages.
 					// On top of it, we checked the lib.LicensePath contains a vendor folder in it.
-					// So it's rare to have a false positive for both conditions at the same time, although it may happen in theory.
+					// So it's rare to have a false positive for both conditions at the same time, although it may
+					// happen in theory.
 					//
 					// These assumptions may change in the future,
 					// so we need to keep this updated with go tooling changes.
@@ -391,7 +410,10 @@ func (l *Library) FileURL(ctx context.Context, cl *source.Client, filePath strin
 		// * https://github.com/google/licenseclassifier/blob/HEAD/LICENSE
 		// points to latest commit of main branch.
 		remote.SetCommit("HEAD")
-		klog.Warningf("module %s has empty version, defaults to HEAD. The license URL may be incorrect. Please verify!", m.Path)
+		klog.Warningf(
+			"module %s has empty version, defaults to HEAD. The license URL may be incorrect. Please verify!",
+			m.Path,
+		)
 	}
 	relativePath, err := filepath.Rel(m.Dir, filePath)
 	if err != nil {
