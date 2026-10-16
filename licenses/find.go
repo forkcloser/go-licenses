@@ -22,16 +22,14 @@ import (
 	"strings"
 )
 
-var (
-	licenseRegexp = regexp.MustCompile(`^(?i)((UN)?LICEN(S|C)E|COPYING|README|NOTICE).*$`)
-)
+var licenseRegexp = regexp.MustCompile(`^(?i)((UN)?LICEN(S|C)E|COPYING|README|NOTICE).*$`)
 
 // FindCandidates returns the candidate file path of the license for this package.
 //
 // dir is path of the directory where we want to find a license.
 // rootDir is path of the module containing this package. Find will not search out of the
 // rootDir.
-func FindCandidates(dir string, rootDir string) ([]string, error) {
+func FindCandidates(dir, rootDir string) ([]string, error) {
 	dir, err := filepath.Abs(dir)
 	if err != nil {
 		return nil, err

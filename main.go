@@ -61,8 +61,10 @@ func init() {
 		klog.Error(err)
 		os.Exit(1)
 	}
-	rootCmd.PersistentFlags().BoolVar(&includeTests, "include_tests", false, "Include packages only imported by testing code.")
-	rootCmd.PersistentFlags().StringSliceVar(&ignore, "ignore", nil, "Package path prefixes to be ignored. Dependencies from the ignored packages are still checked. Can be specified multiple times.")
+	rootCmd.PersistentFlags().
+		BoolVar(&includeTests, "include_tests", false, "Include packages only imported by testing code.")
+	rootCmd.PersistentFlags().
+		StringSliceVar(&ignore, "ignore", nil, "Package path prefixes to be ignored. Dependencies from the ignored packages are still checked. Can be specified multiple times.")
 }
 
 func main() {

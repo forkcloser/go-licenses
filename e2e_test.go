@@ -91,7 +91,7 @@ func TestReportCommandE2E(t *testing.T) {
 			}
 			got := string(output)
 			if *update {
-				err := os.WriteFile(tt.goldenFilePath, output, 0600)
+				err := os.WriteFile(tt.goldenFilePath, output, 0o600)
 				if err != nil {
 					t.Fatalf("writing golden file: %s", err)
 				}
@@ -123,12 +123,32 @@ func TestCheckCommandE2E(t *testing.T) {
 		wantExitCode   int
 	}{
 		{"testdata/modules/hello01", nil, "output-check-forbidden.txt", 0},
-		{"testdata/modules/hello01", []string{"--disallowed_types=forbidden,notice"}, "output-check-notice-forbidden.txt", 1},
+		{
+			"testdata/modules/hello01",
+			[]string{"--disallowed_types=forbidden,notice"},
+			"output-check-notice-forbidden.txt",
+			1,
+		},
 		{"testdata/modules/cli02", nil, "output-check-forbidden.txt", 0},
-		{"testdata/modules/cli02", []string{"--disallowed_types=forbidden,notice"}, "output-check-notice-forbidden.txt", 1},
+		{
+			"testdata/modules/cli02",
+			[]string{"--disallowed_types=forbidden,notice"},
+			"output-check-notice-forbidden.txt",
+			1,
+		},
 		{"testdata/modules/cli02", []string{"--allowed_licenses=Apache-2.0"}, "output-check-license-names-1.txt", 1},
-		{"testdata/modules/cli02", []string{"--allowed_licenses=Apache-2.0,MIT"}, "output-check-license-names-2.txt", 1},
-		{"testdata/modules/cli02", []string{"--allowed_licenses= Apache-2.0, MIT"}, "output-check-license-names-2.txt", 1},
+		{
+			"testdata/modules/cli02",
+			[]string{"--allowed_licenses=Apache-2.0,MIT"},
+			"output-check-license-names-2.txt",
+			1,
+		},
+		{
+			"testdata/modules/cli02",
+			[]string{"--allowed_licenses= Apache-2.0, MIT"},
+			"output-check-license-names-2.txt",
+			1,
+		},
 		{"testdata/modules/nolicense05", nil, "output-check.txt", 1},
 		{"testdata/modules/complex", nil, "output-check-complex.txt", 0},
 	}
@@ -188,12 +208,16 @@ func TestCheckCommandE2E(t *testing.T) {
 			}
 
 			if exitCode != tt.wantExitCode {
-				t.Fatalf("unexpected exit code running go-licenses check, expected %d but got %d", tt.wantExitCode, exitCode)
+				t.Fatalf(
+					"unexpected exit code running go-licenses check, expected %d but got %d",
+					tt.wantExitCode,
+					exitCode,
+				)
 			}
 
 			got := filterOutput(stderr.String())
 			if *update {
-				err := os.WriteFile(tt.goldenFilePath, []byte(got), 0600)
+				err := os.WriteFile(tt.goldenFilePath, []byte(got), 0o600)
 				if err != nil {
 					t.Fatalf("writing golden file: %s", err)
 				}

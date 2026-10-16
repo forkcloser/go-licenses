@@ -78,7 +78,8 @@ func TestFindCandidates(t *testing.T) {
 			dir:  "testdata/readme",
 			wantLicensePathCandidates: []string{
 				filepath.Join(wd, "testdata/readme/README.md"),
-				filepath.Join(wd, "testdata/LICENSE")},
+				filepath.Join(wd, "testdata/LICENSE"),
+			},
 		},
 		{
 			desc: "parent dir",
@@ -126,11 +127,24 @@ func TestFindCandidates(t *testing.T) {
 			}
 			licensePathCandidates, err := FindCandidates(test.dir, test.rootDir)
 			if err != nil {
-				t.Fatalf("FindCandidates(%q) = (%#v, %q), want (%q, nil)", test.dir, licensePathCandidates, err, test.wantLicensePathCandidates)
+				t.Fatalf(
+					"FindCandidates(%q) = (%#v, %q), want (%q, nil)",
+					test.dir,
+					licensePathCandidates,
+					err,
+					test.wantLicensePathCandidates,
+				)
 			}
 
 			if diff := cmp.Diff(test.wantLicensePathCandidates, licensePathCandidates); diff != "" {
-				t.Fatalf("FindCandidates(%q) = %q, %q, want (%q, nil); diff (-want +got): %s", test.dir, licensePathCandidates, err, test.wantLicensePathCandidates, diff)
+				t.Fatalf(
+					"FindCandidates(%q) = %q, %q, want (%q, nil); diff (-want +got): %s",
+					test.dir,
+					licensePathCandidates,
+					err,
+					test.wantLicensePathCandidates,
+					diff,
+				)
 			}
 		})
 	}

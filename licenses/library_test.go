@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+
 	"github.com/forkcloser/go-licenses/internal/third_party/pkgsite/source"
 )
 

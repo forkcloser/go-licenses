@@ -22,11 +22,12 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/forkcloser/go-licenses/internal/third_party/pkgsite/source"
-	"github.com/forkcloser/go-licenses/licenses"
 	"github.com/spf13/cobra"
 	"golang.org/x/sync/errgroup"
 	"k8s.io/klog/v2"
+
+	"github.com/forkcloser/go-licenses/internal/third_party/pkgsite/source"
+	"github.com/forkcloser/go-licenses/licenses"
 )
 
 const (
@@ -143,7 +144,12 @@ func reportMain(_ *cobra.Command, args []string) error {
 			if lib.LicensePath != UNKNOWN {
 				klog.Errorf("Error identifying license in %q: %v", lib.LicensePath, fmt.Errorf("no license found"))
 			} else if lib.Version != UNKNOWN {
-				klog.Errorf("Error identifying license for version %q of %q: %v", lib.Version, lib.Name, fmt.Errorf("no license found"))
+				klog.Errorf(
+					"Error identifying license for version %q of %q: %v",
+					lib.Version,
+					lib.Name,
+					fmt.Errorf("no license found"),
+				)
 			} else {
 				klog.Errorf("Error identifying license for %q: %v", lib.Name, fmt.Errorf("no license found"))
 			}

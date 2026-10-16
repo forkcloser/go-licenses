@@ -432,7 +432,7 @@ func newReplayClient(t *testing.T, record bool) (*http.Client, func()) {
 	if record {
 		httpreplay.DebugHeaders()
 		t.Logf("Recording into %s", replayFilePath)
-		if err := os.MkdirAll(filepath.Dir(replayFilePath), 0755); err != nil {
+		if err := os.MkdirAll(filepath.Dir(replayFilePath), 0o755); err != nil {
 			t.Fatal(err)
 		}
 		rec, err := httpreplay.NewRecorder(replayFilePath, nil)
@@ -619,7 +619,6 @@ func TestModuleInfoDynamic(t *testing.T) {
 			},
 		},
 		{
-
 			"bob.com/bad/apache",
 			&Info{
 				repoURL:   "https://git.apache.org/>$",

@@ -21,10 +21,11 @@ import (
 	"os"
 	"strings"
 
-	"github.com/forkcloser/go-licenses/licenses"
 	"github.com/spf13/cobra"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
+
+	"github.com/forkcloser/go-licenses/licenses"
 )
 
 var (
@@ -42,8 +43,10 @@ var (
 )
 
 func init() {
-	checkCmd.Flags().StringSliceVar(&allowedLicenses, "allowed_licenses", []string{}, "list of allowed license names, can't be used in combination with disallowed_types")
-	checkCmd.Flags().StringSliceVar(&disallowedTypes, "disallowed_types", []string{}, "list of disallowed license types, can't be used in combination with allowed_licenses (default: forbidden, unknown)")
+	checkCmd.Flags().
+		StringSliceVar(&allowedLicenses, "allowed_licenses", []string{}, "list of allowed license names, can't be used in combination with disallowed_types")
+	checkCmd.Flags().
+		StringSliceVar(&disallowedTypes, "disallowed_types", []string{}, "list of disallowed license types, can't be used in combination with allowed_licenses (default: forbidden, unknown)")
 
 	rootCmd.AddCommand(checkCmd)
 }
@@ -97,7 +100,8 @@ func checkMain(_ *cobra.Command, args []string) error {
 					"License '%s' of not allowed license type '%s' found for library '%v'.\n",
 					license.Name,
 					cases.Title(language.English).String(license.Type.String()),
-					lib)
+					lib,
+				)
 				found = true
 			}
 		}
@@ -138,7 +142,8 @@ func getDisallowedLicenseTypes() []licenses.Type {
 				os.Stderr,
 				"Unknown license type '%s' provided.\n"+
 					"Allowed types: forbidden, notice, permissive, reciprocal, restricted, unencumbered, unknown\n",
-				v)
+				v,
+			)
 		}
 	}
 

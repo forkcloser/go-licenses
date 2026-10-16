@@ -22,7 +22,9 @@ const (
 	Master = "master"
 )
 
-var pseudoVersionRE = regexp.MustCompile(`^v[0-9]+\.(0\.0-|\d+\.\d+-([^+]*\.)?0\.)\d{14}-[A-Za-z0-9]+(\+incompatible)?$`)
+var pseudoVersionRE = regexp.MustCompile(
+	`^v[0-9]+\.(0\.0-|\d+\.\d+-([^+]*\.)?0\.)\d{14}-[A-Za-z0-9]+(\+incompatible)?$`,
+)
 
 // IsPseudo reports whether a valid version v is a pseudo-version.
 // Modified from src/cmd/go/internal/modfetch.
