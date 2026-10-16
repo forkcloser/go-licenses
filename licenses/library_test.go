@@ -17,6 +17,7 @@ package licenses
 import (
 	"context"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -62,17 +63,17 @@ func TestLibraries(t *testing.T) {
 
 	testdataLibInfo := wantedLibInfo{
 		Name:        "github.com/forkcloser/go-licenses/licenses/testdata",
-		LicenseFile: wd + "/testdata/LICENSE",
+		LicenseFile: filepath.Join(wd, "testdata", "LICENSE"),
 		Licenses:    classifier.licenses["testdata/LICENSE"],
 	}
 	directLibInfo := wantedLibInfo{
 		Name:        "github.com/forkcloser/go-licenses/licenses/testdata/direct",
-		LicenseFile: wd + "/testdata/direct/LICENSE",
+		LicenseFile: filepath.Join(wd, "testdata", "direct", "LICENSE"),
 		Licenses:    classifier.licenses["testdata/direct/LICENSE"],
 	}
 	indirectLibInfo := wantedLibInfo{
 		Name:        "github.com/forkcloser/go-licenses/licenses/testdata/indirect",
-		LicenseFile: wd + "/testdata/indirect/LICENSE",
+		LicenseFile: filepath.Join(wd, "testdata", "indirect", "LICENSE"),
 		Licenses:    classifier.licenses["testdata/indirect/LICENSE"],
 	}
 
@@ -110,7 +111,7 @@ func TestLibraries(t *testing.T) {
 				indirectLibInfo,
 				{
 					Name:        "github.com/forkcloser/go-licenses/licenses/testdata/testlib",
-					LicenseFile: wd + "/testdata/LICENSE",
+					LicenseFile: filepath.Join(wd, "testdata", "LICENSE"),
 					Licenses:    classifier.licenses["testdata/LICENSE"],
 				},
 			},
@@ -122,7 +123,7 @@ func TestLibraries(t *testing.T) {
 			wantLibs: []wantedLibInfo{
 				{
 					Name:        "github.com/forkcloser/go-licenses/licenses/testdata/testlib",
-					LicenseFile: wd + "/testdata/LICENSE",
+					LicenseFile: filepath.Join(wd, "testdata", "LICENSE"),
 					Licenses:    classifier.licenses["testdata/LICENSE"],
 				},
 			},
@@ -135,7 +136,7 @@ func TestLibraries(t *testing.T) {
 				indirectLibInfo,
 				{
 					Name:        "github.com/forkcloser/go-licenses/licenses/testdata/tags",
-					LicenseFile: wd + "/testdata/LICENSE",
+					LicenseFile: filepath.Join(wd, "testdata", "LICENSE"),
 					Licenses:    classifier.licenses["testdata/LICENSE"],
 				},
 			},

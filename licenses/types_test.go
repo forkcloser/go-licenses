@@ -1,6 +1,7 @@
 package licenses
 
 import (
+	"os"
 	"reflect"
 	"strings"
 	"testing"
@@ -20,7 +21,7 @@ func TestTypes(t *testing.T) {
 	for _, key := range fv.MapKeys() {
 		keyValue := key.String()
 
-		splits := strings.Split(keyValue, "/")
+		splits := strings.Split(keyValue, string(os.PathSeparator))
 		_, name, _ := splits[0], splits[1], splits[2]
 
 		if _, ok := typeMap[name]; !ok {
