@@ -1,4 +1,4 @@
-module github.com/google/go-licenses/v2
+module github.com/forkcloser/go-licenses
 
 go 1.23.0
 
