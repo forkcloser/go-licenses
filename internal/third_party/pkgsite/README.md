@@ -20,3 +20,5 @@ Local modifications:
 - `NewClient` builds on primordium's retrying transport (github.com/mycophonic/primordium/network/transporter)
   instead of an opencensus one. The go-get meta lookup is https only, reading the tags whatever the
   status, as the go command does; it no longer falls back to plain http.
+- gopkg.in modules resolve without a lookup (`gopkgInInfo`, in ./source/source_patch.go): its mapping to
+  GitHub is fixed, and its proxy answered CI with 502s and timeouts.

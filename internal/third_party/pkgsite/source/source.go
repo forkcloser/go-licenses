@@ -145,9 +145,13 @@ func ModuleInfo(ctx context.Context, client *Client, modulePath, v string) (info
 
 	repo, relativeModulePath, templates, transformCommit, err := matchStatic(modulePath)
 	if err != nil {
-		info, err = moduleInfoDynamic(ctx, client, modulePath, v)
-		if err != nil {
-			return nil, err
+		var static bool
+		info, static = gopkgInInfo(modulePath, v)
+		if !static {
+			info, err = moduleInfoDynamic(ctx, client, modulePath, v)
+			if err != nil {
+				return nil, err
+			}
 		}
 	} else {
 		commit, isHash := commitFromVersion(v, relativeModulePath)
