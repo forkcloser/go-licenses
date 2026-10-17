@@ -30,6 +30,10 @@ import (
 
 var update = flag.Bool("update", false, "update golden files")
 
+// fixtureRoot is the module root, where testdata/modules lives, from this
+// package's directory.
+const fixtureRoot = "../.."
+
 func TestReportCommandE2E(t *testing.T) {
 	tests := []struct {
 		workdir        string
@@ -68,7 +72,7 @@ func TestReportCommandE2E(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.workdir, func(t *testing.T) {
-			err := os.Chdir(filepath.Join(originalWorkDir, tt.workdir))
+			err := os.Chdir(filepath.Join(originalWorkDir, fixtureRoot, tt.workdir))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -175,7 +179,7 @@ func TestCheckCommandE2E(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.workdir, func(t *testing.T) {
-			err := os.Chdir(filepath.Join(originalWorkDir, tt.workdir))
+			err := os.Chdir(filepath.Join(originalWorkDir, fixtureRoot, tt.workdir))
 			if err != nil {
 				t.Fatal(err)
 			}

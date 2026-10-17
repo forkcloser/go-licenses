@@ -87,7 +87,7 @@ golangci:
         # raised as a rule; the last alignment pull request deletes the block.
         # Counts are the measurement at enrolment, per file and linter: 518 in 24 files.
         # ---------------------------------------------------------------------------
-        - path: ^check\.go$
+        - path: ^cmd/go-licenses/check\.go$
           linters: # 21 findings
             - gochecknoglobals # 4
             - wsl_v5 # 4
@@ -99,12 +99,12 @@ golangci:
             - gochecknoinits # 1
             - gocognit # 1
             - varnamelen # 1
-        - path: ^csv\.go$
+        - path: ^cmd/go-licenses/csv\.go$
           linters: # 4 findings
             - gochecknoglobals # 2
             - depguard # 1
             - gochecknoinits # 1
-        - path: ^e2e_test\.go$
+        - path: ^cmd/go-licenses/e2e_test\.go$
           linters: # 49 findings
             - wsl_v5 # 27
             - noctx # 6
@@ -114,6 +114,42 @@ golangci:
             - govet # 2
             - errorlint # 1
             - gochecknoglobals # 1
+        - path: ^cmd/go-licenses/main\.go$
+          linters: # 12 findings
+            - gochecknoglobals # 4
+            - wsl_v5 # 4
+            - depguard # 2
+            - gochecknoinits # 1
+            - godot # 1
+        - path: ^cmd/go-licenses/report\.go$
+          linters: # 42 findings
+            - wrapcheck # 9
+            - wsl_v5 # 9
+            - revive # 4
+            - depguard # 3
+            - err113 # 3
+            - gochecknoglobals # 3
+            - perfsprint # 3
+            - copyloopvar # 2
+            - modernize # 2
+            - gochecknoinits # 1
+            - gocognit # 1
+            - gocritic # 1
+            - gosec # 1
+        - path: ^cmd/go-licenses/save\.go$
+          linters: # 33 findings
+            - wrapcheck # 8
+            - wsl_v5 # 7
+            - gochecknoglobals # 4
+            - depguard # 3
+            - err113 # 2
+            - exhaustive # 2
+            - revive # 2
+            - errcheck # 1
+            - gochecknoinits # 1
+            - gocognit # 1
+            - gosec # 1
+            - mnd # 1
         - path: ^internal/third_party/pkgsite/derrors/derrors\.go$
           linters: # 8 findings
             - errname # 2
@@ -257,42 +293,6 @@ golangci:
             - paralleltest # 1
             - testpackage # 1
             - wsl_v5 # 1
-        - path: ^main\.go$
-          linters: # 12 findings
-            - gochecknoglobals # 4
-            - wsl_v5 # 4
-            - depguard # 2
-            - gochecknoinits # 1
-            - godot # 1
-        - path: ^report\.go$
-          linters: # 42 findings
-            - wrapcheck # 9
-            - wsl_v5 # 9
-            - revive # 4
-            - depguard # 3
-            - err113 # 3
-            - gochecknoglobals # 3
-            - perfsprint # 3
-            - copyloopvar # 2
-            - modernize # 2
-            - gochecknoinits # 1
-            - gocognit # 1
-            - gocritic # 1
-            - gosec # 1
-        - path: ^save\.go$
-          linters: # 33 findings
-            - wrapcheck # 8
-            - wsl_v5 # 7
-            - gochecknoglobals # 4
-            - depguard # 3
-            - err113 # 2
-            - exhaustive # 2
-            - revive # 2
-            - errcheck # 1
-            - gochecknoinits # 1
-            - gocognit # 1
-            - gosec # 1
-            - mnd # 1
   formatters:
     exclusions:
       paths:

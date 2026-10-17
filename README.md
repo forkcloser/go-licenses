@@ -30,7 +30,7 @@ To use this tool, make sure:
 Use the following command to download and install this tool:
 
 ```shell
-go install github.com/forkcloser/go-licenses@latest
+go install github.com/forkcloser/go-licenses/cmd/go-licenses@latest
 ```
 
 If you were using `go get` to install this tool, note that
@@ -39,7 +39,7 @@ If you were using `go get` to install this tool, note that
 ## Reports
 
 ```shell
-$ go-licenses report github.com/forkcloser/go-licenses
+$ go-licenses report github.com/forkcloser/go-licenses/cmd/go-licenses
 W0410 06:02:57.077781   31529 library.go:86] "golang.org/x/sys/unix" contains non-Go code that can't be inspected for further dependencies:
 /home/username/go/pkg/mod/golang.org/x/sys@v0.0.0-20220111092808-5a964db01320/unix/asm_linux_amd64.s
 W0410 06:02:59.476443   31529 library.go:86] "golang.org/x/crypto/curve25519/internal/field" contains non-Go code that can't be inspected for further dependencies:
@@ -87,13 +87,13 @@ URLs are versioned based on go modules metadata.
 to stderr. To save the CSV to a file `licenses.csv` in bash, run:
 
 ```bash
-go-licenses report github.com/forkcloser/go-licenses > licenses.csv
+go-licenses report github.com/forkcloser/go-licenses/cmd/go-licenses > licenses.csv
 ```
 
 Or, to also save error logs to an `errors` file, run:
 
 ```bash
-go-licenses report github.com/forkcloser/go-licenses > licenses.csv 2> errors
+go-licenses report github.com/forkcloser/go-licenses/cmd/go-licenses > licenses.csv 2> errors
 ```
 
 **Note**: some warnings and errors may be expected, refer to [Warnings and Errors](#warnings-and-errors) for more information.
@@ -101,7 +101,7 @@ go-licenses report github.com/forkcloser/go-licenses > licenses.csv 2> errors
 ## Reports with Custom Templates
 
 ```shell
-go-licenses report github.com/forkcloser/go-licenses --template testdata/modules/hello01/licenses.tpl
+go-licenses report github.com/forkcloser/go-licenses/cmd/go-licenses --template testdata/modules/hello01/licenses.tpl
 W0822 16:56:50.696198   10200 library.go:94] "golang.org/x/sys/unix" contains non-Go code that can't be inspected for further dependencies:
 /Users/willnorris/go/pkg/mod/golang.org/x/sys@v0.0.0-20220722155257-8c9f86f7a55f/unix/asm_bsd_arm64.s
 /Users/willnorris/go/pkg/mod/golang.org/x/sys@v0.0.0-20220722155257-8c9f86f7a55f/unix/zsyscall_darwin_arm64.1_13.s
@@ -177,7 +177,7 @@ Example template rendering licenses as markdown:
 ## Save licenses, copyright notices and source code (depending on license type)
 
 ```shell
-go-licenses save "github.com/forkcloser/go-licenses" --save_path="/tmp/go-licenses-cli"
+go-licenses save "github.com/forkcloser/go-licenses/cmd/go-licenses" --save_path="/tmp/go-licenses-cli"
 ```
 
 This command analyzes a binary/package's dependencies and determines what needs
@@ -204,7 +204,7 @@ for licenses considered forbidden.
 Typically, specify the Go package that builds your Go binary.
 go-licenses expects the same package argument format as `go build`.  For examples:
 
-* A rooted import path like `github.com/forkcloser/go-licenses` or `github.com/forkcloser/go-licenses/licenses`.
+* A rooted import path like `github.com/forkcloser/go-licenses/cmd/go-licenses` or `github.com/forkcloser/go-licenses/licenses`.
 * A relative path that denotes the package in that directory, like `.` or `./cmd/some-command`.
 
 To learn more about package argument, run `go help packages`.
