@@ -46,8 +46,13 @@ func TestFetchMetaHTTPSOnly(t *testing.T) {
 	client := &Client{httpClient: srv.Client()}
 	importPath := strings.TrimPrefix(srv.URL, "https://") + "/mod"
 
-	if meta, err := fetchMeta(t.Context(), client, importPath); err == nil {
+	meta, err := fetchMeta(t.Context(), client, importPath)
+	if err == nil {
 		t.Fatalf("fetchMeta(%q) = %+v, want an error", importPath, meta)
+	}
+
+	if !strings.Contains(err.Error(), "503") {
+		t.Errorf("fetchMeta(%q) error = %q, want it to name the 503", importPath, err)
 	}
 
 	if got := calls.Load(); got != 1 {

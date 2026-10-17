@@ -68,15 +68,5 @@ func gopkgInInfo(modulePath, version string) (*Info, bool) {
 }
 
 func isDigits(s string) bool {
-	if s == "" {
-		return false
-	}
-
-	for _, r := range s {
-		if r < '0' || r > '9' {
-			return false
-		}
-	}
-
-	return true
+	return s != "" && !strings.ContainsFunc(s, func(r rune) bool { return r < '0' || r > '9' })
 }
