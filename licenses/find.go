@@ -73,6 +73,7 @@ func findAllUpwards(dir string, r *regexp.Regexp, stopAt string) ([]string, erro
 			// Can't go any higher up the directory tree.
 			break
 		}
+
 		dir = parent
 	}
 

@@ -46,6 +46,7 @@ func fetchMeta(ctx context.Context, client *Client, importPath string) (_ *sourc
 		// Add slash for root of domain.
 		uri = uri + "/"
 	}
+
 	uri = uri + "?go-get=1"
 
 	// https only, and the tags read whatever the status, as the go command
@@ -55,10 +56,12 @@ func fetchMeta(ctx context.Context, client *Client, importPath string) (_ *sourc
 		return nil, err
 	}
 	defer resp.Body.Close()
+
 	sm, err := parseMeta(importPath, resp.Body)
 	if err != nil && resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("status %s: %w", resp.Status, err)
 	}
+
 	return sm, err
 }
 
@@ -67,12 +70,14 @@ func parseMeta(importPath string, r io.Reader) (sm *sourceMeta, err error) {
 	// gddo uses an xml parser, and this code is adapted from it.
 	d := xml.NewDecoder(r)
 	d.Strict = false
+
 metaScan:
 	for {
 		t, tokenErr := d.Token()
 		if tokenErr != nil {
 			break metaScan
 		}
+
 		switch t := t.(type) {
 		case xml.EndElement:
 			if strings.EqualFold(t.Name.Local, "head") {
@@ -82,17 +87,21 @@ metaScan:
 			if strings.EqualFold(t.Name.Local, "body") {
 				break metaScan
 			}
+
 			if !strings.EqualFold(t.Name.Local, "meta") {
 				continue metaScan
 			}
+
 			nameAttr := attrValue(t.Attr, "name")
 			if nameAttr != "go-import" && nameAttr != "go-source" {
 				continue metaScan
 			}
+
 			fields := strings.Fields(attrValue(t.Attr, "content"))
 			if len(fields) < 1 {
 				continue metaScan
 			}
+
 			repoRootPrefix := fields[0]
 			if !strings.HasPrefix(importPath, repoRootPrefix) ||
 				!(len(importPath) == len(repoRootPrefix) || importPath[len(repoRootPrefix)] == '/') {
@@ -100,21 +109,26 @@ metaScan:
 				// site to use a single error page for multiple repositories.
 				continue metaScan
 			}
+
 			switch nameAttr {
 			case "go-import":
 				if len(fields) != 3 {
 					errorMessage = "go-import meta tag content attribute does not have three fields"
 					continue metaScan
 				}
+
 				if fields[1] == "mod" {
 					// We can't make source links from a "mod" vcs type, so skip it.
 					continue
 				}
+
 				if sm != nil {
 					sm = nil
 					errorMessage = "more than one go-import meta tag found"
+
 					break metaScan
 				}
+
 				sm = &sourceMeta{
 					repoRootPrefix: repoRootPrefix,
 					repoURL:        fields[2],
@@ -125,9 +139,11 @@ metaScan:
 					errorMessage = "go-source meta tag content attribute does not have four fields"
 					continue metaScan
 				}
+
 				if sm != nil && sm.repoRootPrefix != repoRootPrefix {
 					errorMessage = fmt.Sprintf("import path prefixes %q for go-import and %q for go-source disagree", sm.repoRootPrefix, repoRootPrefix)
 					sm = nil
+
 					break metaScan
 				}
 				// If go-source repo is "_", then default to the go-import repo.
@@ -137,21 +153,26 @@ metaScan:
 						errorMessage = `go-source repo is "_", but no previous go-import tag`
 						break metaScan
 					}
+
 					repoURL = sm.repoURL
 				}
+
 				sm = &sourceMeta{
 					repoRootPrefix: repoRootPrefix,
 					repoURL:        repoURL,
 					dirTemplate:    fields[2],
 					fileTemplate:   fields[3],
 				}
+
 				break metaScan
 			}
 		}
 	}
+
 	if sm == nil {
 		return nil, fmt.Errorf("%s: %w", errorMessage, derrors.NotFound)
 	}
+
 	return sm, nil
 }
 
@@ -161,5 +182,6 @@ func attrValue(attrs []xml.Attr, name string) string {
 			return a.Value
 		}
 	}
+
 	return ""
 }

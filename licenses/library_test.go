@@ -145,6 +145,7 @@ func TestLibraries(t *testing.T) {
 			if test.goflags != "" {
 				t.Setenv("GOFLAGS", test.goflags)
 			}
+
 			gotLibs, err := Libraries(t.Context(), classifier, test.includeTests, test.ignore, test.importPath)
 			if err != nil {
 				t.Fatalf("Libraries(_, %q) = (_, %q), want (_, nil)", test.importPath, err)
@@ -154,9 +155,11 @@ func TestLibraries(t *testing.T) {
 				if diff := cmp.Diff(test.wantLibs[i].Name, gotLib.Name()); diff != "" {
 					t.Errorf("Libraries(_, %q)[%d].Name() diff (-want +got): %s", test.importPath, i, diff)
 				}
+
 				if diff := cmp.Diff(test.wantLibs[i].LicenseFile, gotLib.LicenseFile); diff != "" {
 					t.Errorf("Libraries(_, %q)[%d].LicenseFile diff (-want +got): %s", test.importPath, i, diff)
 				}
+
 				if diff := cmp.Diff(test.wantLibs[i].Licenses, gotLib.Licenses); diff != "" {
 					t.Errorf("Libraries(_, %q)[%d].Licenses diff (-want +got): %s", test.importPath, i, diff)
 				}
@@ -311,12 +314,14 @@ func TestLibraryFileURL(t *testing.T) {
 	} {
 		t.Run(test.desc, func(t *testing.T) {
 			client := source.NewClient(time.Second * 20)
+
 			fileURL, err := test.lib.FileURL(t.Context(), client, test.path)
 			if gotErr := err != nil; gotErr != test.wantErr {
 				t.Fatalf("FileURL(%q) = (_, %q), want err? %t", test.path, err, test.wantErr)
 			} else if gotErr {
 				return
 			}
+
 			if got, want := fileURL, test.wantURL; got != want {
 				t.Fatalf("FileURL(%q) = %q, want %q", test.path, got, want)
 			}

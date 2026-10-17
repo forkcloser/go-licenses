@@ -75,10 +75,12 @@ func (lib libraryDataFlat) LicenseText() (string, error) {
 	if lib.LicensePath == "" {
 		return "", nil
 	}
+
 	data, err := os.ReadFile(lib.LicensePath)
 	if err != nil {
 		return "", err
 	}
+
 	return string(data), nil
 }
 
@@ -96,8 +98,8 @@ func reportMain(_ *cobra.Command, args []string) error {
 	reportData := make([]libraryData, len(libs))
 	client := source.NewClient(time.Second * 20)
 	group, gctx := errgroup.WithContext(context.Background())
-	for idx, lib := range libs {
 
+	for idx, lib := range libs {
 		reportData[idx] = libraryData{
 			Name:         lib.Name(),
 			Version:      UNKNOWN,
@@ -126,6 +128,7 @@ func reportMain(_ *cobra.Command, args []string) error {
 				} else {
 					klog.Warningf("Error discovering license URL: %s", err)
 				}
+
 				return nil
 			})
 		}
@@ -151,6 +154,7 @@ func reportMain(_ *cobra.Command, args []string) error {
 			} else {
 				klog.Errorf("Error identifying license for %q: %v", lib.Name, errors.New("no license found"))
 			}
+
 			reportDataFlat = append(reportDataFlat, libraryDataFlat{
 				Name:        lib.Name,
 				Version:     lib.Version,
@@ -185,7 +189,9 @@ func reportCSV(libs []libraryDataFlat) error {
 			return err
 		}
 	}
+
 	writer.Flush()
+
 	return writer.Error()
 }
 
@@ -194,9 +200,11 @@ func reportTemplate(libs []libraryDataFlat) error {
 	if err != nil {
 		return err
 	}
+
 	tmpl, err := template.New("").Parse(string(templateBytes))
 	if err != nil {
 		return err
 	}
+
 	return tmpl.Execute(os.Stdout, libs)
 }

@@ -31,6 +31,7 @@ func (i *Info) SetCommit(commit string) {
 	if i == nil {
 		return
 	}
+
 	i.commit = commit
 }
 

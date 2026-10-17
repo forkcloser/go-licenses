@@ -56,6 +56,7 @@ func (e PackagesError) Error() string {
 			fmt.Fprintf(&str, "\n%s: %s", pkg.PkgPath, err)
 		}
 	})
+
 	return str.String()
 }
 
@@ -80,7 +81,6 @@ func Libraries(
 	// 6. we return an array of libraries (which are the license files, the
 	//    found licenses in that file, all the packages that had that file as
 	//    its first candidate and the module in which those packages live)
-
 	cfg := &packages.Config{
 		Context: ctx,
 		Mode:    packages.NeedImports | packages.NeedDeps | packages.NeedFiles | packages.NeedName | packages.NeedModule,
@@ -93,6 +93,7 @@ func Libraries(
 	}
 
 	vendoredSearch := []*Module{}
+
 	for _, parentPkg := range rootPkgs {
 		if parentPkg.Module == nil {
 			continue
@@ -123,21 +124,25 @@ func Libraries(
 	{
 		pkgErrorOccurred := false
 		otherErrorOccurred := false
+
 		packages.Visit(rootPkgs, func(p *packages.Package) bool {
 			if len(p.Errors) > 0 {
 				pkgErrorOccurred = true
 				return false
 			}
+
 			if isStdLib(p) {
 				// No license requirements for the Go standard library.
 				return false
 			}
+
 			if includeTests && isTestBinary(p) {
 				// A test binary only imports the standard library, so we do not need to check its license.
 				// Moreover, Find below will return an error because pkgDir is not under p.Module.Dir
 				// as pkgDir is under GOCACHE instead.
 				return false
 			}
+
 			for _, i := range ignoredPaths {
 				if strings.HasPrefix(p.PkgPath, i) {
 					// Marked to be ignored.
@@ -154,6 +159,7 @@ func Libraries(
 			}
 
 			var pkgDir string
+
 			switch {
 			case len(p.GoFiles) > 0:
 				pkgDir = filepath.Dir(p.GoFiles[0])
@@ -168,10 +174,12 @@ func Libraries(
 
 			if p.Module == nil {
 				otherErrorOccurred = true
+
 				klog.Errorf(
 					"Package %s does not have module info. Non go modules projects are no longer supported. For feedback, refer to https://github.com/google/go-licenses/issues/128.",
 					p.PkgPath,
 				)
+
 				return false
 			}
 
@@ -225,11 +233,13 @@ func Libraries(
 
 			return true
 		}, nil)
+
 		if pkgErrorOccurred {
 			return nil, PackagesError{
 				pkgs: rootPkgs,
 			}
 		}
+
 		if otherErrorOccurred {
 			return nil, errors.New("some errors occurred when loading direct and transitive dependency packages")
 		}
@@ -237,6 +247,7 @@ func Libraries(
 
 	pkgCandidates := map[string][]string{}
 	allCandidates := map[string]struct{}{}
+
 	for _, pkg := range allPackages {
 		candidates, err := FindCandidates(pkg.pkgDir, pkg.moduleDir)
 		if err != nil {
@@ -254,6 +265,7 @@ func Libraries(
 		candidate string
 		licenes   []License
 	}, len(allCandidates))
+
 	counter := 0
 	for candidate := range allCandidates {
 		idx := counter
@@ -273,6 +285,7 @@ func Libraries(
 				candidate: candidate,
 				licenes:   licenses,
 			}
+
 			return nil
 		})
 	}
@@ -282,6 +295,7 @@ func Libraries(
 	}
 
 	foundLicenses := map[string][]License{}
+
 	for _, found := range foundLicenseSlice {
 		if len(found.licenes) == 0 {
 			continue
@@ -291,10 +305,12 @@ func Libraries(
 	}
 
 	pkgsByLicense := make(map[string][]pkgInfo)
+
 	for _, pkg := range allPackages {
 		candidates := pkgCandidates[pkg.pkgDir]
 
 		bestCandidate := ""
+
 		for _, candidate := range candidates {
 			if _, ok := foundLicenses[candidate]; ok {
 				bestCandidate = candidate
@@ -306,6 +322,7 @@ func Libraries(
 	}
 
 	var libraries []*Library
+
 	for licenseFile, pkgs := range pkgsByLicense {
 		if licenseFile == "" {
 			// No license for these packages - return each one as a separate library.
@@ -315,6 +332,7 @@ func Libraries(
 					module:   allModules[p.modulePath],
 				})
 			}
+
 			continue
 		}
 
@@ -349,20 +367,25 @@ func commonAncestor(paths []string) string {
 	if len(paths) == 0 {
 		return ""
 	}
+
 	if len(paths) == 1 {
 		return paths[0]
 	}
+
 	sort.Strings(paths)
 	min, max := paths[0], paths[len(paths)-1]
 	lastSlashIndex := 0
+
 	for i := 0; i < len(min) && i < len(max); i++ {
 		if min[i] != max[i] {
 			return min[:lastSlashIndex]
 		}
+
 		if min[i] == '/' {
 			lastSlashIndex = i
 		}
 	}
+
 	return min
 }
 
@@ -376,20 +399,25 @@ func (l *Library) FileURL(ctx context.Context, cl *source.Client, filePath strin
 	if l == nil {
 		return "", errors.New("library is nil")
 	}
+
 	wrap := func(err error) error {
 		return fmt.Errorf("getting file URL in library %s: %w", l.Name(), err)
 	}
+
 	m := l.module
 	if m == nil {
 		return "", wrap(errors.New("empty go module info"))
 	}
+
 	if m.Dir == "" {
 		return "", wrap(errors.New("empty go module dir"))
 	}
+
 	remote, err := source.ModuleInfo(ctx, cl, m.Path, m.Version)
 	if err != nil {
 		return "", wrap(err)
 	}
+
 	if m.Version == "" {
 		// This always happens for the module in development.
 		// Note#1 if we pass version=HEAD to source.ModuleInfo, github tag for modules not at the root
@@ -415,6 +443,7 @@ func (l *Library) FileURL(ctx context.Context, cl *source.Client, filePath strin
 			m.Path,
 		)
 	}
+
 	relativePath, err := filepath.Rel(m.Dir, filePath)
 	if err != nil {
 		return "", wrap(err)
@@ -428,6 +457,7 @@ func (l *Library) Version() string {
 	if l.module != nil {
 		return l.module.Version
 	}
+
 	return ""
 }
 
@@ -437,14 +467,18 @@ func isStdLib(pkg *packages.Package) bool {
 		// Special case unsafe stdlib, because it does not contain go files.
 		return true
 	}
+
 	if len(pkg.GoFiles) == 0 {
 		return false
 	}
+
 	prefix := build.Default.GOROOT
+
 	sep := string(filepath.Separator)
 	if !strings.HasSuffix(prefix, sep) {
 		prefix += sep
 	}
+
 	return strings.HasPrefix(pkg.GoFiles[0], prefix)
 }
 

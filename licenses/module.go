@@ -59,6 +59,7 @@ func newModule(mod *packages.Module) *Module {
 	// The +incompatible suffix does not affect module version.
 	// ref: https://golang.org/ref/mod#incompatible-versions
 	tmp.Version = strings.TrimSuffix(tmp.Version, "+incompatible")
+
 	return &Module{
 		Path:    tmp.Path,
 		Version: tmp.Version,
