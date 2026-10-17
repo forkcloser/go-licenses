@@ -25,6 +25,7 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
+	"k8s.io/klog/v2"
 
 	"github.com/forkcloser/go-licenses/licenses"
 )
@@ -76,9 +77,13 @@ func checkMain(_ *cobra.Command, args []string) error {
 		return err
 	}
 
-	libs, err := licenses.Libraries(context.Background(), classifier, includeTests, ignore, args...)
+	libs, warnings, err := licenses.Libraries(context.Background(), classifier, includeTests, ignore, args...)
 	if err != nil {
 		return err
+	}
+
+	for _, warning := range warnings {
+		klog.Warning(warning)
 	}
 
 	// indicate that a forbidden license was found

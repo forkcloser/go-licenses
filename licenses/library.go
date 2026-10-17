@@ -25,7 +25,6 @@ import (
 
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/tools/go/packages"
-	"k8s.io/klog/v2"
 )
 
 // Library is a collection of packages covered by the same license file.
@@ -58,6 +57,17 @@ func (e PackagesError) Error() string {
 	return str.String()
 }
 
+// A Warning is something Libraries noticed that does not stop it: what it is
+// about (a package, a module or a licence file) and what it noticed.
+type Warning struct {
+	Subject string
+	Message string
+}
+
+func (w Warning) String() string {
+	return w.Subject + ": " + w.Message
+}
+
 // Libraries returns the collection of libraries used by this package, directly or transitively.
 // A library is a collection of one or more packages covered by the same license file.
 // Packages not covered by a license will be returned as individual libraries.
@@ -68,7 +78,7 @@ func Libraries(
 	includeTests bool,
 	ignoredPaths []string,
 	importPaths ...string,
-) ([]*Library, error) {
+) ([]*Library, []Warning, error) {
 	// These are the steps we take to find libraries:
 	// 1. we list all modules and all packages
 	// 2. for each package, we find a list of candidates
@@ -87,7 +97,7 @@ func Libraries(
 
 	rootPkgs, err := packages.Load(cfg, importPaths...)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	vendoredSearch := []*Module{}
@@ -117,11 +127,14 @@ func Libraries(
 		moduleDir string
 	}
 
+	var warnings []Warning
+
 	allModules := map[string]*Module{}
 	allPackages := []pkgInfo{}
 	{
 		pkgErrorOccurred := false
-		otherErrorOccurred := false
+
+		var loadErrs []error
 
 		packages.Visit(rootPkgs, func(p *packages.Package) bool {
 			if len(p.Errors) > 0 {
@@ -149,11 +162,11 @@ func Libraries(
 			}
 
 			if len(p.OtherFiles) > 0 {
-				klog.Warningf(
-					"%q contains non-Go code that can't be inspected for further dependencies:\n%s",
-					p.PkgPath,
-					strings.Join(p.OtherFiles, "\n"),
-				)
+				warnings = append(warnings, Warning{
+					Subject: p.PkgPath,
+					Message: "contains non-Go code that can't be inspected for further dependencies: " +
+						strings.Join(p.OtherFiles, ", "),
+				})
 			}
 
 			var pkgDir string
@@ -171,12 +184,10 @@ func Libraries(
 			}
 
 			if p.Module == nil {
-				otherErrorOccurred = true
-
-				klog.Errorf(
-					"Package %s does not have module info. Non go modules projects are no longer supported. For feedback, refer to https://github.com/google/go-licenses/issues/128.",
+				loadErrs = append(loadErrs, fmt.Errorf(
+					"package %s does not have module info: projects outside Go modules are not supported",
 					p.PkgPath,
-				)
+				))
 
 				return false
 			}
@@ -187,10 +198,10 @@ func Libraries(
 				// A known cause is that the module is vendored, so some information is lost.
 				isVendored := strings.Contains(pkgDir, string(filepath.Separator)+"vendor"+string(filepath.Separator))
 				if !isVendored {
-					klog.Warningf(
-						"module %s does not have dir and it's not vendored, cannot discover the license URL. Report to go-licenses developer if you see this.",
-						module.Path,
-					)
+					warnings = append(warnings, Warning{
+						Subject: module.Path,
+						Message: "module has no directory and is not vendored: its licence search is not bounded by it",
+					})
 				} else {
 					// This is vendored. Handle this known special case.
 
@@ -216,7 +227,10 @@ func Libraries(
 					}
 
 					if module.Dir == "" {
-						klog.Warningf("cannot find parent package of vendored module %s", module.Path)
+						warnings = append(warnings, Warning{
+							Subject: module.Path,
+							Message: "vendored, but no module vendors it",
+						})
 					}
 				}
 			}
@@ -233,13 +247,13 @@ func Libraries(
 		}, nil)
 
 		if pkgErrorOccurred {
-			return nil, PackagesError{
+			return nil, nil, PackagesError{
 				pkgs: rootPkgs,
 			}
 		}
 
-		if otherErrorOccurred {
-			return nil, errors.New("some errors occurred when loading direct and transitive dependency packages")
+		if len(loadErrs) > 0 {
+			return nil, nil, fmt.Errorf("loading direct and transitive dependency packages: %w", errors.Join(loadErrs...))
 		}
 	}
 
@@ -249,7 +263,7 @@ func Libraries(
 	for _, pkg := range allPackages {
 		candidates, err := FindCandidates(pkg.pkgDir, pkg.moduleDir)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
 		pkgCandidates[pkg.pkgDir] = candidates
@@ -262,6 +276,7 @@ func Libraries(
 	foundLicenseSlice := make([]struct {
 		candidate string
 		licenes   []License
+		err       error
 	}, len(allCandidates))
 
 	counter := 0
@@ -270,18 +285,17 @@ func Libraries(
 		counter++
 
 		group.Go(func() error {
+			// A file that fails to parse is reported, and the others still count.
 			licenses, err := classifier.Identify(candidate)
-			if err != nil {
-				klog.Errorf("Failed to parse %s: %v", candidate, err)
-				return nil // Continue even if one LICENSE file fails to parse.
-			}
 
 			foundLicenseSlice[idx] = struct {
 				candidate string
 				licenes   []License
+				err       error
 			}{
 				candidate: candidate,
 				licenes:   licenses,
+				err:       err,
 			}
 
 			return nil
@@ -289,12 +303,21 @@ func Libraries(
 	}
 
 	if err := group.Wait(); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	foundLicenses := map[string][]License{}
 
 	for _, found := range foundLicenseSlice {
+		if found.err != nil {
+			warnings = append(warnings, Warning{
+				Subject: found.candidate,
+				Message: "failed to parse: " + found.err.Error(),
+			})
+
+			continue
+		}
+
 		if len(found.licenes) == 0 {
 			continue
 		}
@@ -353,7 +376,7 @@ func Libraries(
 		return libraries[i].Name() < libraries[j].Name()
 	})
 
-	return libraries, nil
+	return libraries, warnings, nil
 }
 
 // Name is the common prefix of the import paths for all of the packages in this library.

@@ -78,9 +78,13 @@ func saveMain(_ *cobra.Command, args []string) error {
 		return err
 	}
 
-	libs, err := licenses.Libraries(context.Background(), classifier, includeTests, ignore, args...)
+	libs, warnings, err := licenses.Libraries(context.Background(), classifier, includeTests, ignore, args...)
 	if err != nil {
 		return err
+	}
+
+	for _, warning := range warnings {
+		klog.Warning(warning)
 	}
 
 	// Check that the save path doesn't exist, otherwise it'd end up with a mix of

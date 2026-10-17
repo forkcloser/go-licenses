@@ -143,7 +143,7 @@ func TestLibraries(t *testing.T) {
 				t.Setenv("GOFLAGS", test.goflags)
 			}
 
-			gotLibs, err := Libraries(t.Context(), classifier, test.includeTests, test.ignore, test.importPath)
+			gotLibs, _, err := Libraries(t.Context(), classifier, test.includeTests, test.ignore, test.importPath)
 			if err != nil {
 				t.Fatalf("Libraries(_, %q) = (_, %q), want (_, nil)", test.importPath, err)
 			}
@@ -233,7 +233,7 @@ func TestLibrariesVendored(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	libs, err := Libraries(t.Context(), classifier, false, nil, ".")
+	libs, _, err := Libraries(t.Context(), classifier, false, nil, ".")
 	if err != nil {
 		t.Fatalf("Libraries(vendored03) = %v", err)
 	}
