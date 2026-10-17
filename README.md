@@ -71,7 +71,7 @@ go-licenses expects the same package argument format as `go build`.  For example
 
 To learn more about package argument, run `go help packages`.
 
-To learn more about go-licenses usages, run `go-licenses help`.
+To learn more about go-licenses usages, run `go-licenses --help`, or `go-licenses <command> --help`.
 
 ### Save
 
@@ -161,6 +161,9 @@ This flag makes effect to the `check` and `save` commands.
 
 The tool will log warnings and errors in some scenarios. This section provides
 guidance on addressing them.
+
+Warnings are logged to stderr, colored on a terminal and as JSON otherwise;
+`LOG_LEVEL` (`debug`, `info`, `warn`, `error`) sets how much is shown.
 
 ### Dependency contains non-Go code
 

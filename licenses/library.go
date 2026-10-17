@@ -253,7 +253,10 @@ func Libraries(
 		}
 
 		if len(loadErrs) > 0 {
-			return nil, nil, fmt.Errorf("loading direct and transitive dependency packages: %w", errors.Join(loadErrs...))
+			return nil, nil, fmt.Errorf(
+				"loading direct and transitive dependency packages: %w",
+				errors.Join(loadErrs...),
+			)
 		}
 	}
 

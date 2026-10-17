@@ -23,51 +23,31 @@ import (
 	"strings"
 
 	"github.com/otiai10/copy"
-	"github.com/spf13/cobra"
-	"k8s.io/klog/v2"
 
 	"github.com/forkcloser/go-licenses/licenses"
 )
 
-var (
-	saveHelp = "Saves licenses, copyright notices and source code, as required by a Go package's dependencies, to a directory."
-	saveCmd  = &cobra.Command{
-		Use:   "save <package> [package...]",
-		Short: saveHelp,
-		Long:  saveHelp + packageHelp,
-		Args:  cobra.MinimumNArgs(1),
-		RunE:  saveMain,
-	}
+var noticeRegexp = regexp.MustCompile(`^NOTICE(\.(txt|md))?$`)
 
-	noticeRegexp = regexp.MustCompile(`^NOTICE(\.(txt|md))?$`)
+type saveCmd struct {
+	// SavePath is where the output of the command is written to.
+	SavePath string `help:"Directory into which files should be saved that are required by license terms" name:"save_path" required:""`
+	// Force replaces the directory SavePath names when it already exists;
+	// without it, the command fails.
+	Force bool `help:"Delete the destination directory if it already exists."`
 
-	// savePath is where the output of the command is written to.
-	savePath string
-	// overwriteSavePath controls behaviour when the directory indicated by savePath already exists.
-	// If true, the directory will be replaced. If false, the command will fail.
-	overwriteSavePath bool
-)
-
-func init() {
-	saveCmd.Flags().
-		StringVar(&savePath, "save_path", "", "Directory into which files should be saved that are required by license terms")
-
-	if err := saveCmd.MarkFlagRequired("save_path"); err != nil {
-		klog.Fatal(err)
-	}
-
-	if err := saveCmd.MarkFlagFilename("save_path"); err != nil {
-		klog.Fatal(err)
-	}
-
-	saveCmd.Flags().
-		BoolVar(&overwriteSavePath, "force", false, "Delete the destination directory if it already exists.")
-
-	rootCmd.AddCommand(saveCmd)
+	Packages []string `arg:"" help:"Go packages whose dependencies' files to save." name:"package"`
 }
 
-func saveMain(_ *cobra.Command, args []string) error {
-	if overwriteSavePath {
+// Help is the long help, after the flags.
+func (*saveCmd) Help() string {
+	return packageHelp
+}
+
+func (c *saveCmd) Run(ctx context.Context, root *cli) error {
+	savePath := c.SavePath
+
+	if c.Force {
 		if err := os.RemoveAll(savePath); err != nil {
 			return err
 		}
@@ -78,14 +58,12 @@ func saveMain(_ *cobra.Command, args []string) error {
 		return err
 	}
 
-	libs, warnings, err := licenses.Libraries(context.Background(), classifier, includeTests, ignore, args...)
+	libs, warnings, err := licenses.Libraries(ctx, classifier, root.IncludeTests, root.Ignore, c.Packages...)
 	if err != nil {
 		return err
 	}
 
-	for _, warning := range warnings {
-		klog.Warning(warning)
-	}
+	logWarnings(ctx, warnings)
 
 	// Check that the save path doesn't exist, otherwise it'd end up with a mix of
 	// existing files and the output of this command.

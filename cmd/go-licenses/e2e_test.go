@@ -101,7 +101,7 @@ func TestCheckCommandE2E(t *testing.T) {
 			}
 			// Extra flags to disable logging.
 			// Logs are not deterministic for this golden test.
-			args := append([]string{"--logtostderr=false", "--stderrthreshold=10", "check", "."}, tt.args...)
+			args := append([]string{"check", "."}, tt.args...)
 			cmd = exec.Command(goLicensesPath, args...)
 			cmd.Env = goldenPlatform()
 			// Capture stderr to buffer.
@@ -186,7 +186,7 @@ func goLicensesBinary() string {
 // goldenPlatform is the environment the CLI runs in: the goldens are
 // linux/amd64's, and the packages a module loads, so the libraries it
 // reports, change with the platform (golang.org/x/sys/cpu is imported on
-// amd64 only).
+// amd64 only). LOG_LEVEL=error keeps the warnings off the compared output.
 func goldenPlatform() []string {
-	return append(os.Environ(), "GOOS=linux", "GOARCH=amd64")
+	return append(os.Environ(), "GOOS=linux", "GOARCH=amd64", "LOG_LEVEL=error")
 }
