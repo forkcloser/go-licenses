@@ -26,8 +26,6 @@ import (
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/tools/go/packages"
 	"k8s.io/klog/v2"
-
-	"github.com/forkcloser/go-licenses/internal/third_party/pkgsite/source"
 )
 
 // Library is a collection of packages covered by the same license file.
@@ -391,66 +389,6 @@ func commonAncestor(paths []string) string {
 
 func (l *Library) String() string {
 	return l.Name()
-}
-
-// FileURL attempts to determine the URL for a file in this library using
-// go module name and version.
-func (l *Library) FileURL(ctx context.Context, cl *source.Client, filePath string) (string, error) {
-	if l == nil {
-		return "", errors.New("library is nil")
-	}
-
-	wrap := func(err error) error {
-		return fmt.Errorf("getting file URL in library %s: %w", l.Name(), err)
-	}
-
-	m := l.module
-	if m == nil {
-		return "", wrap(errors.New("empty go module info"))
-	}
-
-	if m.Dir == "" {
-		return "", wrap(errors.New("empty go module dir"))
-	}
-
-	remote, err := source.ModuleInfo(ctx, cl, m.Path, m.Version)
-	if err != nil {
-		return "", wrap(err)
-	}
-
-	if m.Version == "" {
-		// This always happens for the module in development.
-		// Note#1 if we pass version=HEAD to source.ModuleInfo, github tag for modules not at the root
-		// of the repo will be incorrect, because there's a convention that:
-		// * I have a module at github.com/google/go-licenses/submod.
-		// * The module is of version v1.0.0.
-		// Then the github tag should be submod/v1.0.0.
-		// In our case, if we pass HEAD as version, the result commit will be submod/HEAD which is incorrect.
-		// Therefore, to workaround this problem, we directly set the commit after getting module info.
-		//
-		// Note#2 repos have different branches as default, some use the
-		// master branch and some use the main branch. However, HEAD
-		// always refers to the default branch, so it's better than
-		// both of master/main when we do not know which branch is default.
-		// Examples:
-		// * https://github.com/google/go-licenses/blob/HEAD/LICENSE
-		// points to latest commit of master branch.
-		// * https://github.com/google/licenseclassifier/blob/HEAD/LICENSE
-		// points to latest commit of main branch.
-		remote.SetCommit("HEAD")
-		klog.Warningf(
-			"module %s has empty version, defaults to HEAD. The license URL may be incorrect. Please verify!",
-			m.Path,
-		)
-	}
-
-	relativePath, err := filepath.Rel(m.Dir, filePath)
-	if err != nil {
-		return "", wrap(err)
-	}
-	// TODO: there are still rare cases this may result in an incorrect URL.
-	// https://github.com/google/go-licenses/issues/73#issuecomment-1005587408
-	return remote.FileURL(filepath.ToSlash(relativePath)), nil
 }
 
 func (l *Library) Version() string {
