@@ -15,15 +15,11 @@
 package licenses
 
 import (
-	"context"
 	"os"
 	"path/filepath"
 	"testing"
-	"time"
 
 	"github.com/google/go-cmp/cmp"
-
-	"github.com/forkcloser/go-licenses/internal/third_party/pkgsite/source"
 )
 
 func TestLibraries(t *testing.T) {
@@ -144,10 +140,10 @@ func TestLibraries(t *testing.T) {
 	} {
 		t.Run(test.desc, func(t *testing.T) {
 			if test.goflags != "" {
-				os.Setenv("GOFLAGS", test.goflags)
-				defer os.Unsetenv("GOFLAGS")
+				t.Setenv("GOFLAGS", test.goflags)
 			}
-			gotLibs, err := Libraries(context.Background(), classifier, test.includeTests, test.ignore, test.importPath)
+
+			gotLibs, err := Libraries(t.Context(), classifier, test.includeTests, test.ignore, test.importPath)
 			if err != nil {
 				t.Fatalf("Libraries(_, %q) = (_, %q), want (_, nil)", test.importPath, err)
 			}
@@ -156,9 +152,11 @@ func TestLibraries(t *testing.T) {
 				if diff := cmp.Diff(test.wantLibs[i].Name, gotLib.Name()); diff != "" {
 					t.Errorf("Libraries(_, %q)[%d].Name() diff (-want +got): %s", test.importPath, i, diff)
 				}
+
 				if diff := cmp.Diff(test.wantLibs[i].LicenseFile, gotLib.LicenseFile); diff != "" {
 					t.Errorf("Libraries(_, %q)[%d].LicenseFile diff (-want +got): %s", test.importPath, i, diff)
 				}
+
 				if diff := cmp.Diff(test.wantLibs[i].Licenses, gotLib.Licenses); diff != "" {
 					t.Errorf("Libraries(_, %q)[%d].Licenses diff (-want +got): %s", test.importPath, i, diff)
 				}
@@ -219,109 +217,43 @@ func TestLibraryName(t *testing.T) {
 	}
 }
 
-func TestLibraryFileURL(t *testing.T) {
-	for _, test := range []struct {
-		desc    string
-		lib     *Library
-		path    string
-		wantURL string
-		wantErr bool
-	}{
-		{
-			desc: "Library on github.com",
-			lib: &Library{
-				Packages: []string{
-					"github.com/google/trillian",
-					"github.com/google/trillian/crypto",
-				},
-				LicenseFile: "/go/src/github.com/google/trillian/LICENSE",
-				module: &Module{
-					Path:    "github.com/google/trillian",
-					Dir:     "/go/src/github.com/google/trillian",
-					Version: "v1.2.3",
-				},
-			},
-			path:    "/go/src/github.com/google/trillian/foo/README.md",
-			wantURL: "https://github.com/google/trillian/blob/v1.2.3/foo/README.md",
-		},
-		{
-			desc: "Library on bitbucket.org",
-			lib: &Library{
-				Packages: []string{
-					"bitbucket.org/user/project/pkg",
-					"bitbucket.org/user/project/pkg2",
-				},
-				LicenseFile: "/foo/bar/bitbucket.org/user/project/LICENSE",
-				module: &Module{
-					Path:    "bitbucket.org/user/project",
-					Dir:     "/foo/bar/bitbucket.org/user/project",
-					Version: "v1.2.3",
-				},
-			},
-			path:    "/foo/bar/bitbucket.org/user/project/foo/README.md",
-			wantURL: "https://bitbucket.org/user/project/src/v1.2.3/foo/README.md",
-		},
-		{
-			desc: "Library on example.com",
-			lib: &Library{
-				Packages: []string{
-					"example.com/user/project/pkg",
-					"example.com/user/project/pkg2",
-				},
-				LicenseFile: "/foo/bar/example.com/user/project/LICENSE",
-				module: &Module{
-					Path:    "example.com/user/project",
-					Dir:     "/foo/bar/example.com/user/project",
-					Version: "v1.2.3",
-				},
-			},
-			path:    "/foo/bar/example.com/user/project/foo/README.md",
-			wantURL: "https://example.com/user/project/blob/v1.2.3/foo/README.md",
-		},
-		{
-			desc: "Library without version defaults to remote HEAD",
-			lib: &Library{
-				Packages: []string{
-					"github.com/google/trillian",
-					"github.com/google/trillian/crypto",
-				},
-				LicenseFile: "/go/src/github.com/google/trillian/LICENSE",
-				module: &Module{
-					Path: "github.com/google/trillian",
-					Dir:  "/go/src/github.com/google/trillian",
-				},
-			},
-			path:    "/go/src/github.com/google/trillian/foo/README.md",
-			wantURL: "https://github.com/google/trillian/blob/HEAD/foo/README.md",
-		},
-		{
-			desc: "Library on k8s.io",
-			lib: &Library{
-				Packages: []string{
-					"k8s.io/api/core/v1",
-				},
-				LicenseFile: "/go/modcache/k8s.io/api/LICENSE",
-				module: &Module{
-					Path:    "k8s.io/api",
-					Dir:     "/go/modcache/k8s.io/api",
-					Version: "v0.23.1",
-				},
-			},
-			path:    "/go/modcache/k8s.io/api/LICENSE",
-			wantURL: "https://github.com/kubernetes/api/blob/v0.23.1/LICENSE",
-		},
-	} {
-		t.Run(test.desc, func(t *testing.T) {
-			client := source.NewClient(time.Second * 20)
-			fileURL, err := test.lib.FileURL(context.Background(), client, test.path)
-			if gotErr := err != nil; gotErr != test.wantErr {
-				t.Fatalf("FileURL(%q) = (_, %q), want err? %t", test.path, err, test.wantErr)
-			} else if gotErr {
-				return
-			}
-			if got, want := fileURL, test.wantURL; got != want {
-				t.Fatalf("FileURL(%q) = %q, want %q", test.path, got, want)
-			}
-		})
+// TestLibrariesVendored runs Libraries over a module that vendors its
+// dependency: the vendored package's module carries no directory of its own,
+// and Libraries finds it its parent module's, which bounds the licence search.
+func TestLibrariesVendored(t *testing.T) {
+	root, err := filepath.Abs(filepath.Join("..", "testdata", "modules", "vendored03"))
+	if err != nil {
+		t.Fatal(err)
 	}
+
+	t.Chdir(root)
+
+	classifier, err := NewClassifier()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	libs, err := Libraries(t.Context(), classifier, false, nil, ".")
+	if err != nil {
+		t.Fatalf("Libraries(vendored03) = %v", err)
+	}
+
+	for _, lib := range libs {
+		if lib.Name() != "github.com/mitchellh/go-homedir" {
+			continue
+		}
+
+		if lib.module == nil || lib.module.Dir != root {
+			t.Fatalf("go-homedir's module = %+v, want the vendoring module at %s", lib.module, root)
+		}
+
+		want := filepath.Join(root, "vendor", "github.com", "mitchellh", "go-homedir", "LICENSE")
+		if lib.LicenseFile != want {
+			t.Errorf("go-homedir's licence = %q, want %q", lib.LicenseFile, want)
+		}
+
+		return
+	}
+
+	t.Fatalf("Libraries(vendored03) has no go-homedir library: %v", libs)
 }

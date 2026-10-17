@@ -22,7 +22,7 @@ import (
 	"testing"
 )
 
-// Useful in other tests in this package
+// Useful in other tests in this package.
 type classifierStub struct {
 	licenses map[string][]License
 	errors   map[string]error
@@ -34,17 +34,21 @@ func (c classifierStub) Identify(licensePath string) ([]License, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	relPath, err := filepath.Rel(wd, licensePath)
 	if err != nil {
 		return nil, err
 	}
+
 	relPath = filepath.ToSlash(relPath)
 	if licenses, ok := c.licenses[relPath]; ok {
 		return licenses, c.errors[relPath]
 	}
+
 	if err := c.errors[relPath]; err != nil {
 		return nil, c.errors[relPath]
 	}
+
 	return nil, fmt.Errorf("classifierStub has no programmed response for %q", relPath)
 }
 

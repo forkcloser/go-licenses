@@ -35,7 +35,7 @@ Prerequisites:
 3. Run "go mod download".`,
 	}
 
-	// Flags shared between subcommands
+	// Flags shared between subcommands.
 	includeTests bool
 	ignore       []string
 	packageHelp  = `
@@ -51,16 +51,19 @@ To learn more about Go package argument, run "go help packages".`
 func init() {
 	// Change klog default log level to INFO.
 	klog.InitFlags(nil)
+
 	err := flag.Set("logtostderr", "true")
 	if err != nil {
 		klog.Error(err)
 		os.Exit(1)
 	}
+
 	err = flag.Set("stderrthreshold", "INFO")
 	if err != nil {
 		klog.Error(err)
 		os.Exit(1)
 	}
+
 	rootCmd.PersistentFlags().
 		BoolVar(&includeTests, "include_tests", false, "Include packages only imported by testing code.")
 	rootCmd.PersistentFlags().
@@ -83,5 +86,6 @@ func unvendor(importPath string) string {
 	if vendorerAndVendoree := strings.SplitN(importPath, "/vendor/", 2); len(vendorerAndVendoree) == 2 {
 		return vendorerAndVendoree[1]
 	}
+
 	return importPath
 }

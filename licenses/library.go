@@ -16,6 +16,7 @@ package licenses
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"go/build"
 	"path/filepath"
@@ -25,8 +26,6 @@ import (
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/tools/go/packages"
 	"k8s.io/klog/v2"
-
-	"github.com/forkcloser/go-licenses/internal/third_party/pkgsite/source"
 )
 
 // Library is a collection of packages covered by the same license file.
@@ -49,12 +48,13 @@ type PackagesError struct {
 
 func (e PackagesError) Error() string {
 	var str strings.Builder
-	str.WriteString(fmt.Sprintf("errors for %q:", e.pkgs))
+	fmt.Fprintf(&str, "errors for %q:", e.pkgs)
 	packages.Visit(e.pkgs, nil, func(pkg *packages.Package) {
 		for _, err := range pkg.Errors {
-			str.WriteString(fmt.Sprintf("\n%s: %s", pkg.PkgPath, err))
+			fmt.Fprintf(&str, "\n%s: %s", pkg.PkgPath, err)
 		}
 	})
+
 	return str.String()
 }
 
@@ -79,7 +79,6 @@ func Libraries(
 	// 6. we return an array of libraries (which are the license files, the
 	//    found licenses in that file, all the packages that had that file as
 	//    its first candidate and the module in which those packages live)
-
 	cfg := &packages.Config{
 		Context: ctx,
 		Mode:    packages.NeedImports | packages.NeedDeps | packages.NeedFiles | packages.NeedName | packages.NeedModule,
@@ -92,6 +91,7 @@ func Libraries(
 	}
 
 	vendoredSearch := []*Module{}
+
 	for _, parentPkg := range rootPkgs {
 		if parentPkg.Module == nil {
 			continue
@@ -122,21 +122,25 @@ func Libraries(
 	{
 		pkgErrorOccurred := false
 		otherErrorOccurred := false
+
 		packages.Visit(rootPkgs, func(p *packages.Package) bool {
 			if len(p.Errors) > 0 {
 				pkgErrorOccurred = true
 				return false
 			}
+
 			if isStdLib(p) {
 				// No license requirements for the Go standard library.
 				return false
 			}
+
 			if includeTests && isTestBinary(p) {
 				// A test binary only imports the standard library, so we do not need to check its license.
 				// Moreover, Find below will return an error because pkgDir is not under p.Module.Dir
 				// as pkgDir is under GOCACHE instead.
 				return false
 			}
+
 			for _, i := range ignoredPaths {
 				if strings.HasPrefix(p.PkgPath, i) {
 					// Marked to be ignored.
@@ -153,6 +157,7 @@ func Libraries(
 			}
 
 			var pkgDir string
+
 			switch {
 			case len(p.GoFiles) > 0:
 				pkgDir = filepath.Dir(p.GoFiles[0])
@@ -167,10 +172,12 @@ func Libraries(
 
 			if p.Module == nil {
 				otherErrorOccurred = true
+
 				klog.Errorf(
 					"Package %s does not have module info. Non go modules projects are no longer supported. For feedback, refer to https://github.com/google/go-licenses/issues/128.",
 					p.PkgPath,
 				)
+
 				return false
 			}
 
@@ -224,18 +231,21 @@ func Libraries(
 
 			return true
 		}, nil)
+
 		if pkgErrorOccurred {
 			return nil, PackagesError{
 				pkgs: rootPkgs,
 			}
 		}
+
 		if otherErrorOccurred {
-			return nil, fmt.Errorf("some errors occurred when loading direct and transitive dependency packages")
+			return nil, errors.New("some errors occurred when loading direct and transitive dependency packages")
 		}
 	}
 
 	pkgCandidates := map[string][]string{}
 	allCandidates := map[string]struct{}{}
+
 	for _, pkg := range allPackages {
 		candidates, err := FindCandidates(pkg.pkgDir, pkg.moduleDir)
 		if err != nil {
@@ -253,11 +263,11 @@ func Libraries(
 		candidate string
 		licenes   []License
 	}, len(allCandidates))
+
 	counter := 0
 	for candidate := range allCandidates {
 		idx := counter
 		counter++
-		candidate := candidate
 
 		group.Go(func() error {
 			licenses, err := classifier.Identify(candidate)
@@ -273,6 +283,7 @@ func Libraries(
 				candidate: candidate,
 				licenes:   licenses,
 			}
+
 			return nil
 		})
 	}
@@ -282,6 +293,7 @@ func Libraries(
 	}
 
 	foundLicenses := map[string][]License{}
+
 	for _, found := range foundLicenseSlice {
 		if len(found.licenes) == 0 {
 			continue
@@ -291,10 +303,12 @@ func Libraries(
 	}
 
 	pkgsByLicense := make(map[string][]pkgInfo)
+
 	for _, pkg := range allPackages {
 		candidates := pkgCandidates[pkg.pkgDir]
 
 		bestCandidate := ""
+
 		for _, candidate := range candidates {
 			if _, ok := foundLicenses[candidate]; ok {
 				bestCandidate = candidate
@@ -306,6 +320,7 @@ func Libraries(
 	}
 
 	var libraries []*Library
+
 	for licenseFile, pkgs := range pkgsByLicense {
 		if licenseFile == "" {
 			// No license for these packages - return each one as a separate library.
@@ -315,6 +330,7 @@ func Libraries(
 					module:   allModules[p.modulePath],
 				})
 			}
+
 			continue
 		}
 
@@ -349,20 +365,25 @@ func commonAncestor(paths []string) string {
 	if len(paths) == 0 {
 		return ""
 	}
+
 	if len(paths) == 1 {
 		return paths[0]
 	}
+
 	sort.Strings(paths)
 	min, max := paths[0], paths[len(paths)-1]
 	lastSlashIndex := 0
+
 	for i := 0; i < len(min) && i < len(max); i++ {
 		if min[i] != max[i] {
 			return min[:lastSlashIndex]
 		}
+
 		if min[i] == '/' {
 			lastSlashIndex = i
 		}
 	}
+
 	return min
 }
 
@@ -370,64 +391,11 @@ func (l *Library) String() string {
 	return l.Name()
 }
 
-// FileURL attempts to determine the URL for a file in this library using
-// go module name and version.
-func (l *Library) FileURL(ctx context.Context, cl *source.Client, filePath string) (string, error) {
-	if l == nil {
-		return "", fmt.Errorf("library is nil")
-	}
-	wrap := func(err error) error {
-		return fmt.Errorf("getting file URL in library %s: %w", l.Name(), err)
-	}
-	m := l.module
-	if m == nil {
-		return "", wrap(fmt.Errorf("empty go module info"))
-	}
-	if m.Dir == "" {
-		return "", wrap(fmt.Errorf("empty go module dir"))
-	}
-	remote, err := source.ModuleInfo(ctx, cl, m.Path, m.Version)
-	if err != nil {
-		return "", wrap(err)
-	}
-	if m.Version == "" {
-		// This always happens for the module in development.
-		// Note#1 if we pass version=HEAD to source.ModuleInfo, github tag for modules not at the root
-		// of the repo will be incorrect, because there's a convention that:
-		// * I have a module at github.com/google/go-licenses/submod.
-		// * The module is of version v1.0.0.
-		// Then the github tag should be submod/v1.0.0.
-		// In our case, if we pass HEAD as version, the result commit will be submod/HEAD which is incorrect.
-		// Therefore, to workaround this problem, we directly set the commit after getting module info.
-		//
-		// Note#2 repos have different branches as default, some use the
-		// master branch and some use the main branch. However, HEAD
-		// always refers to the default branch, so it's better than
-		// both of master/main when we do not know which branch is default.
-		// Examples:
-		// * https://github.com/google/go-licenses/blob/HEAD/LICENSE
-		// points to latest commit of master branch.
-		// * https://github.com/google/licenseclassifier/blob/HEAD/LICENSE
-		// points to latest commit of main branch.
-		remote.SetCommit("HEAD")
-		klog.Warningf(
-			"module %s has empty version, defaults to HEAD. The license URL may be incorrect. Please verify!",
-			m.Path,
-		)
-	}
-	relativePath, err := filepath.Rel(m.Dir, filePath)
-	if err != nil {
-		return "", wrap(err)
-	}
-	// TODO: there are still rare cases this may result in an incorrect URL.
-	// https://github.com/google/go-licenses/issues/73#issuecomment-1005587408
-	return remote.FileURL(filepath.ToSlash(relativePath)), nil
-}
-
 func (l *Library) Version() string {
 	if l.module != nil {
 		return l.module.Version
 	}
+
 	return ""
 }
 
@@ -437,14 +405,18 @@ func isStdLib(pkg *packages.Package) bool {
 		// Special case unsafe stdlib, because it does not contain go files.
 		return true
 	}
+
 	if len(pkg.GoFiles) == 0 {
 		return false
 	}
+
 	prefix := build.Default.GOROOT
+
 	sep := string(filepath.Separator)
 	if !strings.HasSuffix(prefix, sep) {
 		prefix += sep
 	}
+
 	return strings.HasPrefix(pkg.GoFiles[0], prefix)
 }
 
