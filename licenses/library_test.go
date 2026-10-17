@@ -17,6 +17,7 @@ package licenses
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -227,6 +228,9 @@ func TestLibrariesVendored(t *testing.T) {
 	}
 
 	t.Chdir(root)
+	// The fixture is about vendor/: a GOFLAGS=-mod=mod in the environment
+	// would read go-homedir from the module cache instead.
+	t.Setenv("GOFLAGS", "-mod=vendor")
 
 	classifier, err := NewClassifier()
 	if err != nil {
@@ -256,4 +260,32 @@ func TestLibrariesVendored(t *testing.T) {
 	}
 
 	t.Fatalf("Libraries(vendored03) has no go-homedir library: %v", libs)
+}
+
+// TestLibrariesWarnings pins the warnings Libraries returns: a package with a
+// non-Go file it cannot read for further imports is named, with the files.
+func TestLibrariesWarnings(t *testing.T) {
+	t.Parallel()
+
+	classifier, err := NewClassifier()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	importPath := "github.com/forkcloser/go-licenses/licenses/testdata/nongo"
+
+	_, warnings, err := Libraries(t.Context(), classifier, false, nil, importPath)
+	if err != nil {
+		t.Fatalf("Libraries(%q) = %v", importPath, err)
+	}
+
+	for _, warning := range warnings {
+		if warning.Subject == importPath &&
+			strings.HasPrefix(warning.Message, "contains non-Go code that can't be inspected") &&
+			strings.HasSuffix(warning.Message, "nongo.s") {
+			return
+		}
+	}
+
+	t.Errorf("Libraries(%q) warnings = %v, want one for its non-Go file", importPath, warnings)
 }
