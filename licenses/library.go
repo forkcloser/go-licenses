@@ -16,6 +16,7 @@ package licenses
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"go/build"
 	"path/filepath"
@@ -49,10 +50,10 @@ type PackagesError struct {
 
 func (e PackagesError) Error() string {
 	var str strings.Builder
-	str.WriteString(fmt.Sprintf("errors for %q:", e.pkgs))
+	fmt.Fprintf(&str, "errors for %q:", e.pkgs)
 	packages.Visit(e.pkgs, nil, func(pkg *packages.Package) {
 		for _, err := range pkg.Errors {
-			str.WriteString(fmt.Sprintf("\n%s: %s", pkg.PkgPath, err))
+			fmt.Fprintf(&str, "\n%s: %s", pkg.PkgPath, err)
 		}
 	})
 	return str.String()
@@ -230,7 +231,7 @@ func Libraries(
 			}
 		}
 		if otherErrorOccurred {
-			return nil, fmt.Errorf("some errors occurred when loading direct and transitive dependency packages")
+			return nil, errors.New("some errors occurred when loading direct and transitive dependency packages")
 		}
 	}
 
@@ -257,7 +258,6 @@ func Libraries(
 	for candidate := range allCandidates {
 		idx := counter
 		counter++
-		candidate := candidate
 
 		group.Go(func() error {
 			licenses, err := classifier.Identify(candidate)
@@ -374,17 +374,17 @@ func (l *Library) String() string {
 // go module name and version.
 func (l *Library) FileURL(ctx context.Context, cl *source.Client, filePath string) (string, error) {
 	if l == nil {
-		return "", fmt.Errorf("library is nil")
+		return "", errors.New("library is nil")
 	}
 	wrap := func(err error) error {
 		return fmt.Errorf("getting file URL in library %s: %w", l.Name(), err)
 	}
 	m := l.module
 	if m == nil {
-		return "", wrap(fmt.Errorf("empty go module info"))
+		return "", wrap(errors.New("empty go module info"))
 	}
 	if m.Dir == "" {
-		return "", wrap(fmt.Errorf("empty go module dir"))
+		return "", wrap(errors.New("empty go module dir"))
 	}
 	remote, err := source.ModuleInfo(ctx, cl, m.Path, m.Version)
 	if err != nil {

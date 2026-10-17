@@ -17,7 +17,7 @@ package main
 import (
 	"context"
 	"encoding/csv"
-	"fmt"
+	"errors"
 	"os"
 	"text/template"
 	"time"
@@ -97,8 +97,6 @@ func reportMain(_ *cobra.Command, args []string) error {
 	client := source.NewClient(time.Second * 20)
 	group, gctx := errgroup.WithContext(context.Background())
 	for idx, lib := range libs {
-		idx := idx
-		lib := lib
 
 		reportData[idx] = libraryData{
 			Name:         lib.Name(),
@@ -142,16 +140,16 @@ func reportMain(_ *cobra.Command, args []string) error {
 	for _, lib := range reportData {
 		if len(lib.LicenseNames) == 0 {
 			if lib.LicensePath != UNKNOWN {
-				klog.Errorf("Error identifying license in %q: %v", lib.LicensePath, fmt.Errorf("no license found"))
+				klog.Errorf("Error identifying license in %q: %v", lib.LicensePath, errors.New("no license found"))
 			} else if lib.Version != UNKNOWN {
 				klog.Errorf(
 					"Error identifying license for version %q of %q: %v",
 					lib.Version,
 					lib.Name,
-					fmt.Errorf("no license found"),
+					errors.New("no license found"),
 				)
 			} else {
-				klog.Errorf("Error identifying license for %q: %v", lib.Name, fmt.Errorf("no license found"))
+				klog.Errorf("Error identifying license for %q: %v", lib.Name, errors.New("no license found"))
 			}
 			reportDataFlat = append(reportDataFlat, libraryDataFlat{
 				Name:        lib.Name,

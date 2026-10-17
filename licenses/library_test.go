@@ -15,7 +15,6 @@
 package licenses
 
 import (
-	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -144,10 +143,9 @@ func TestLibraries(t *testing.T) {
 	} {
 		t.Run(test.desc, func(t *testing.T) {
 			if test.goflags != "" {
-				os.Setenv("GOFLAGS", test.goflags)
-				defer os.Unsetenv("GOFLAGS")
+				t.Setenv("GOFLAGS", test.goflags)
 			}
-			gotLibs, err := Libraries(context.Background(), classifier, test.includeTests, test.ignore, test.importPath)
+			gotLibs, err := Libraries(t.Context(), classifier, test.includeTests, test.ignore, test.importPath)
 			if err != nil {
 				t.Fatalf("Libraries(_, %q) = (_, %q), want (_, nil)", test.importPath, err)
 			}
@@ -313,7 +311,7 @@ func TestLibraryFileURL(t *testing.T) {
 	} {
 		t.Run(test.desc, func(t *testing.T) {
 			client := source.NewClient(time.Second * 20)
-			fileURL, err := test.lib.FileURL(context.Background(), client, test.path)
+			fileURL, err := test.lib.FileURL(t.Context(), client, test.path)
 			if gotErr := err != nil; gotErr != test.wantErr {
 				t.Fatalf("FileURL(%q) = (_, %q), want err? %t", test.path, err, test.wantErr)
 			} else if gotErr {

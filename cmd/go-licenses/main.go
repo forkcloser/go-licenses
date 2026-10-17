@@ -35,7 +35,7 @@ Prerequisites:
 3. Run "go mod download".`,
 	}
 
-	// Flags shared between subcommands
+	// Flags shared between subcommands.
 	includeTests bool
 	ignore       []string
 	packageHelp  = `

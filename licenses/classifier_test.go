@@ -22,7 +22,7 @@ import (
 	"testing"
 )
 
-// Useful in other tests in this package
+// Useful in other tests in this package.
 type classifierStub struct {
 	licenses map[string][]License
 	errors   map[string]error

@@ -63,7 +63,7 @@ func TagForVersion(v string) (_ string, err error) {
 	if patch == "0" {
 		versionWithoutPrerelease = strings.TrimSuffix(versionWithoutPrerelease, ".0")
 	}
-	goVersion = fmt.Sprintf("go%s", strings.TrimPrefix(versionWithoutPrerelease, "v"))
+	goVersion = "go" + strings.TrimPrefix(versionWithoutPrerelease, "v")
 	if prerelease != "" {
 		// Go prereleases look like  "beta1" instead of "beta.1".
 		// "beta1" is bad for sorting (since beta10 comes before beta9), so

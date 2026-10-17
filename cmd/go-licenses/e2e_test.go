@@ -54,14 +54,9 @@ func TestReportCommandE2E(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { _ = os.Chdir(originalWorkDir) })
 
 	// This builds go-licenses CLI to temporary dir.
-	tempDir, err := os.MkdirTemp("", "")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tempDir)
+	tempDir := t.TempDir()
 	goLicensesPath := filepath.Join(tempDir, goLicensesBinary())
 	cmd := exec.Command("go", "build", "-o", goLicensesPath)
 	_, err = cmd.Output()
@@ -72,10 +67,7 @@ func TestReportCommandE2E(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.workdir, func(t *testing.T) {
-			err := os.Chdir(filepath.Join(originalWorkDir, fixtureRoot, tt.workdir))
-			if err != nil {
-				t.Fatal(err)
-			}
+			t.Chdir(filepath.Join(originalWorkDir, fixtureRoot, tt.workdir))
 			cmd := exec.Command("go", "mod", "download")
 			log, err := cmd.CombinedOutput()
 			if err != nil {
@@ -95,7 +87,7 @@ func TestReportCommandE2E(t *testing.T) {
 			}
 			got := string(output)
 			if *update {
-				err := os.WriteFile(tt.goldenFilePath, output, 0o600)
+				err = os.WriteFile(tt.goldenFilePath, output, 0o600)
 				if err != nil {
 					t.Fatalf("writing golden file: %s", err)
 				}
@@ -161,14 +153,9 @@ func TestCheckCommandE2E(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { _ = os.Chdir(originalWorkDir) })
 
 	// This builds go-licenses CLI to temporary dir.
-	tempDir, err := os.MkdirTemp("", "")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(tempDir)
+	tempDir := t.TempDir()
 	goLicensesPath := filepath.Join(tempDir, goLicensesBinary())
 	cmd := exec.Command("go", "build", "-o", goLicensesPath)
 	_, err = cmd.Output()
@@ -179,10 +166,7 @@ func TestCheckCommandE2E(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.workdir, func(t *testing.T) {
-			err := os.Chdir(filepath.Join(originalWorkDir, fixtureRoot, tt.workdir))
-			if err != nil {
-				t.Fatal(err)
-			}
+			t.Chdir(filepath.Join(originalWorkDir, fixtureRoot, tt.workdir))
 			cmd := exec.Command("go", "mod", "download")
 			log, err := cmd.CombinedOutput()
 			if err != nil {
@@ -202,7 +186,8 @@ func TestCheckCommandE2E(t *testing.T) {
 			if err != nil {
 				exitCode = -1
 
-				if exitError, ok := err.(*exec.ExitError); ok {
+				exitError := &exec.ExitError{}
+				if errors.As(err, &exitError) {
 					exitCode = exitError.ExitCode()
 				}
 			}
@@ -221,7 +206,7 @@ func TestCheckCommandE2E(t *testing.T) {
 
 			got := filterOutput(stderr.String())
 			if *update {
-				err := os.WriteFile(tt.goldenFilePath, []byte(got), 0o600)
+				err = os.WriteFile(tt.goldenFilePath, []byte(got), 0o600)
 				if err != nil {
 					t.Fatalf("writing golden file: %s", err)
 				}

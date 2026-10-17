@@ -23,7 +23,7 @@ func TestWrap(t *testing.T) {
 	if got := err.Error(); got != want {
 		t.Errorf("got %s, want %s", got, want)
 	}
-	if got := errors.Unwrap(err); got != orig {
+	if got := errors.Unwrap(err); got != orig { //nolint:errorlint // the direct unwrap is under test
 		t.Errorf("Unwrap: got %#v, want %#v", got, orig)
 	}
 }

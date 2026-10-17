@@ -22,11 +22,13 @@ package source
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log" // We cannot use glog instead, because its "v" flag conflicts with other libraries we use.
 	"net/http"
 	"path"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -105,7 +107,7 @@ func (c *Client) doURL(ctx context.Context, method, url string, only200 bool) (_
 	defer derrors.Wrap(&err, "doURL(ctx, client, %q, %q)", method, url)
 
 	if c == nil || c.httpClient == nil {
-		return nil, fmt.Errorf("c.httpClient cannot be nil")
+		return nil, errors.New("c.httpClient cannot be nil")
 	}
 	req, err := http.NewRequest(method, url, nil)
 	if err != nil {
@@ -115,7 +117,7 @@ func (c *Client) doURL(ctx context.Context, method, url string, only200 bool) (_
 	if err != nil {
 		return nil, err
 	}
-	if only200 && resp.StatusCode != 200 {
+	if only200 && resp.StatusCode != http.StatusOK {
 		resp.Body.Close()
 		return nil, fmt.Errorf("status %s", resp.Status)
 	}
@@ -260,7 +262,7 @@ func adjustGoRepoInfo(info *Info, modulePath string, isHash bool) {
 		"https://github.com/golang/%s/raw/{commit}/{file}", strings.TrimPrefix(suffix, "x/"),
 	)
 
-	info.repoURL = fmt.Sprintf("https://cs.opensource.google/go/%s", suffix)
+	info.repoURL = "https://cs.opensource.google/go/" + suffix
 	info.templates = csopensourceTemplates
 	info.templates.Raw = rawURL
 
@@ -364,7 +366,7 @@ func moduleInfoDynamic(ctx context.Context, client *Client, modulePath, version 
 	// 2. Then look at the URL templates to see if they match a known pattern, and use the templates
 	//    from that pattern. For example, the meta tags for gopkg.in/yaml.v2 only mention github
 	//    in the URL templates, like "https://github.com/go-yaml/yaml/tree/v2.2.3{/dir}". We can observe
-	//    that that template begins with a known pattern--a GitHub repo, ignore the rest of it, and use the
+	//    that the template begins with a known pattern--a GitHub repo, ignore the rest of it, and use the
 	//    GitHub URL templates that we know.
 	repoURL := sourceMeta.repoURL
 	_, _, templates, transformCommit, _ := matchStatic(removeHTTPScheme(repoURL))
@@ -638,13 +640,7 @@ func init() {
 	for i := range patterns {
 		re := regexp.MustCompile(patterns[i].pattern)
 		// The pattern regexp must contain a group named "repo".
-		found := false
-		for _, n := range re.SubexpNames() {
-			if n == "repo" {
-				found = true
-				break
-			}
-		}
+		found := slices.Contains(re.SubexpNames(), "repo")
 		if !found {
 			panic(fmt.Sprintf("pattern %s missing <repo> group", patterns[i].pattern))
 		}

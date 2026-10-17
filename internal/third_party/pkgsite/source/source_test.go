@@ -4,7 +4,6 @@
 package source
 
 import (
-	"context"
 	"flag"
 	"fmt"
 	"io"
@@ -46,7 +45,7 @@ func TestModuleInfo(t *testing.T) {
 				t.Fatalf("%s: %v", got, err)
 			}
 			defer res.Body.Close()
-			if res.StatusCode != 200 {
+			if res.StatusCode != http.StatusOK {
 				t.Fatalf("%s: %v", got, res.Status)
 			}
 		}
@@ -416,7 +415,7 @@ func TestModuleInfo(t *testing.T) {
 		},
 	} {
 		t.Run(test.desc, func(t *testing.T) {
-			info, err := ModuleInfo(context.Background(), &Client{client}, test.modulePath, test.version)
+			info, err := ModuleInfo(t.Context(), &Client{client}, test.modulePath, test.version)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -621,7 +620,7 @@ func TestModuleInfoDynamic(t *testing.T) {
 		},
 	} {
 		t.Run(test.modulePath, func(t *testing.T) {
-			got, err := moduleInfoDynamic(context.Background(), client, test.modulePath, version)
+			got, err := moduleInfoDynamic(t.Context(), client, test.modulePath, version)
 			if err != nil {
 				if test.want == nil {
 					return
@@ -658,7 +657,7 @@ func TestRemoveVersionSuffix(t *testing.T) {
 }
 
 func TestAdjustVersionedModuleDirectory(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	client := NewClient(testTimeout)
 	client.httpClient.Transport = testTransport(map[string]string{
 		// Repo "branch" follows the "major branch" convention: versions 2 and higher
@@ -943,7 +942,7 @@ func TestMatchLegacyTemplates(t *testing.T) {
 			wantTransformCommitNil: true,
 		},
 	} {
-		gotTemplates, gotTransformCommit := matchLegacyTemplates(context.Background(), &test.sm)
+		gotTemplates, gotTransformCommit := matchLegacyTemplates(t.Context(), &test.sm)
 		gotNil := gotTransformCommit == nil
 		if gotTemplates != test.wantTemplates || gotNil != test.wantTransformCommitNil {
 			t.Errorf("%+v:\ngot  (%+v, %t)\nwant (%+v, %t)",
