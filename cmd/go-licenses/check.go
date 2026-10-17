@@ -18,45 +18,39 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"slices"
 	"strings"
 
-	"github.com/spf13/cobra"
+	"github.com/mycophonic/primordium/app/shutdown"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 
 	"github.com/forkcloser/go-licenses/licenses"
 )
 
-var (
-	checkHelp = "Checks whether licenses for a package are not allowed."
-	checkCmd  = &cobra.Command{
-		Use:   "check <package> [package...]",
-		Short: checkHelp,
-		Long:  checkHelp + packageHelp,
-		Args:  cobra.MinimumNArgs(1),
-		RunE:  checkMain,
-	}
+// errDisallowed is a check that found licences it does not allow. The
+// findings are printed already; main exits 1 without another message.
+var errDisallowed = shutdown.ExitError(1)
 
-	allowedLicenses []string
-	disallowedTypes []string
-)
+type checkCmd struct {
+	AllowedLicenses []string `help:"list of allowed license names, can't be used in combination with disallowed_types"                                  name:"allowed_licenses"`
+	DisallowedTypes []string `help:"list of disallowed license types, can't be used in combination with allowed_licenses (default: forbidden, unknown)" name:"disallowed_types"`
 
-func init() {
-	checkCmd.Flags().
-		StringSliceVar(&allowedLicenses, "allowed_licenses", []string{}, "list of allowed license names, can't be used in combination with disallowed_types")
-	checkCmd.Flags().
-		StringSliceVar(&disallowedTypes, "disallowed_types", []string{}, "list of disallowed license types, can't be used in combination with allowed_licenses (default: forbidden, unknown)")
-
-	rootCmd.AddCommand(checkCmd)
+	Packages []string `arg:"" help:"Go packages to check." name:"package"`
 }
 
-func checkMain(_ *cobra.Command, args []string) error {
+// Help is the long help, after the flags.
+func (*checkCmd) Help() string {
+	return packageHelp
+}
+
+func (c *checkCmd) Run(ctx context.Context, root *cli) error {
 	var disallowedLicenseTypes []licenses.Type
 
-	allowedLicenseNames := getAllowedLicenseNames()
-	disallowedLicenseTypes = getDisallowedLicenseTypes()
+	allowedLicenseNames := getAllowedLicenseNames(c.AllowedLicenses)
+	disallowedLicenseTypes = getDisallowedLicenseTypes(c.DisallowedTypes)
 
 	hasLicenseNames := len(allowedLicenseNames) > 0
 	hasLicenseType := len(disallowedLicenseTypes) > 0
@@ -76,10 +70,12 @@ func checkMain(_ *cobra.Command, args []string) error {
 		return err
 	}
 
-	libs, err := licenses.Libraries(context.Background(), classifier, includeTests, ignore, args...)
+	libs, warnings, err := licenses.Libraries(ctx, classifier, root.IncludeTests, root.Ignore, c.Packages...)
 	if err != nil {
 		return err
 	}
+
+	logWarnings(ctx, warnings)
 
 	// indicate that a forbidden license was found
 	found := false
@@ -113,13 +109,13 @@ func checkMain(_ *cobra.Command, args []string) error {
 	}
 
 	if found {
-		os.Exit(1)
+		return errDisallowed
 	}
 
 	return nil
 }
 
-func getDisallowedLicenseTypes() []licenses.Type {
+func getDisallowedLicenseTypes(disallowedTypes []string) []licenses.Type {
 	if len(disallowedTypes) == 0 {
 		return []licenses.Type{}
 	}
@@ -159,7 +155,7 @@ func isDisallowedLicenseType(licenseType licenses.Type, excludedLicenseTypes []l
 	return slices.Contains(excludedLicenseTypes, licenseType)
 }
 
-func getAllowedLicenseNames() []string {
+func getAllowedLicenseNames(allowedLicenses []string) []string {
 	if len(allowedLicenses) == 0 {
 		return []string{}
 	}
@@ -175,4 +171,11 @@ func getAllowedLicenseNames() []string {
 
 func isAllowedLicenseName(licenseName string, allowedLicenseNames []string) bool {
 	return slices.Contains(allowedLicenseNames, licenseName)
+}
+
+// logWarnings logs what Libraries noticed and went past.
+func logWarnings(ctx context.Context, warnings []licenses.Warning) {
+	for _, warning := range warnings {
+		slog.WarnContext(ctx, "dependency warning", "subject", warning.Subject, "warning", warning.Message)
+	}
 }

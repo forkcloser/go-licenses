@@ -63,6 +63,17 @@
 #     - internal/legacy/
 golangci:
   linters:
+    settings:
+      depguard:
+        rules:
+          main:
+            # The house command line: kong for the flags and commands,
+            # primordium's logger (slog, tint on a terminal) and shutdown
+            # (signals, exit status), not its whole app.
+            allow:
+              - github.com/alecthomas/kong
+              - github.com/mycophonic/primordium/app/logger
+              - github.com/mycophonic/primordium/app/shutdown
     exclusions:
       paths:
         # licenseclassifier v2.0.0, vendored: kept as upstream wrote it, so its
@@ -87,35 +98,26 @@ golangci:
         # Counts are the measurement at enrolment, per file and linter: 518 in 24 files.
         # ---------------------------------------------------------------------------
         - path: ^cmd/go-licenses/check\.go$
-          linters: # 15 findings
-            - gochecknoglobals # 4
-            - depguard # 3
-            - revive # 2
+          linters: # 8 findings
+            - depguard # 2
             - wrapcheck # 2
             - err113 # 1
-            - gochecknoinits # 1
             - gocognit # 1
+            - revive # 1
             - varnamelen # 1
         - path: ^cmd/go-licenses/e2e_test\.go$
           linters: # 6 findings
             - noctx # 3
             - paralleltest # 2
             - gochecknoglobals # 1
-        - path: ^cmd/go-licenses/main\.go$
-          linters: # 7 findings
-            - gochecknoglobals # 4
-            - depguard # 2
-            - gochecknoinits # 1
         - path: ^cmd/go-licenses/save\.go$
-          linters: # 26 findings
+          linters: # 20 findings
             - wrapcheck # 8
-            - gochecknoglobals # 4
-            - depguard # 3
+            - revive # 3
             - err113 # 2
             - exhaustive # 2
-            - revive # 2
+            - depguard # 1
             - errcheck # 1
-            - gochecknoinits # 1
             - gocognit # 1
             - gosec # 1
             - mnd # 1
@@ -144,9 +146,9 @@ golangci:
             - paralleltest # 2
             - testpackage # 1
         - path: ^licenses/library\.go$
-          linters: # 11 findings
-            - depguard # 3
+          linters: # 10 findings
             - revive # 3
+            - depguard # 2
             - wrapcheck # 2
             - err113 # 1
             - gocognit # 1
