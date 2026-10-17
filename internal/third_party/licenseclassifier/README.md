@@ -14,3 +14,6 @@ Local modifications:
   and `ReadLicenseDir`.
 - The licence texts lose trailing whitespace, carriage returns and trailing blank lines (145 of
   431). The tokenizer drops whitespace, so each text yields the same document as upstream's.
+- `docDiff` hands go-diff copies of the documents' runes: go-diff writes into the slices it is
+  given, and the corpus documents are shared by the matches `Libraries` runs concurrently (a data race
+  under `-race`).
