@@ -36,6 +36,7 @@ func NewClassifier() (Classifier, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	return &googleClassifier{classifier: c}, nil
 }
 
@@ -65,6 +66,7 @@ func (c *googleClassifier) Identify(licensePath string) ([]License, error) {
 	foundLicenseNames := map[string]struct{}{}
 
 	licenses := []License{}
+
 	for _, match := range matches.Matches {
 		if match.MatchType != "License" {
 			continue
@@ -74,6 +76,7 @@ func (c *googleClassifier) Identify(licensePath string) ([]License, error) {
 		if _, ok := foundLicenseNames[match.Name]; ok {
 			continue
 		}
+
 		foundLicenseNames[match.Name] = struct{}{}
 
 		licenses = append(licenses, License{

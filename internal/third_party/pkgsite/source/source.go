@@ -56,7 +56,9 @@ func (i *Info) FileURL(pathname string) string {
 	if i == nil {
 		return ""
 	}
+
 	dir, base := path.Split(pathname)
+
 	return expand(i.templates.File, map[string]string{
 		"repo":       i.repoURL,
 		"importPath": path.Join(strings.TrimPrefix(i.repoURL, "https://"), dir),
@@ -109,18 +111,22 @@ func (c *Client) doURL(ctx context.Context, method, url string, only200 bool) (_
 	if c == nil || c.httpClient == nil {
 		return nil, errors.New("c.httpClient cannot be nil")
 	}
+
 	req, err := http.NewRequest(method, url, nil)
 	if err != nil {
 		return nil, err
 	}
+
 	resp, err := ctxhttp.Do(ctx, c.httpClient, req)
 	if err != nil {
 		return nil, err
 	}
+
 	if only200 && resp.StatusCode != http.StatusOK {
 		resp.Body.Close()
 		return nil, fmt.Errorf("status %s", resp.Status)
 	}
+
 	return resp, nil
 }
 
@@ -131,6 +137,7 @@ func (c *Client) doURL(ctx context.Context, method, url string, only200 bool) (_
 // ModuleInfo may fetch from arbitrary URLs, so it can be slow.
 func ModuleInfo(ctx context.Context, client *Client, modulePath, v string) (info *Info, err error) {
 	defer derrors.Wrap(&err, "source.ModuleInfo(ctx, %q, %q)", modulePath, v)
+
 	ctx, span := trace.StartSpan(ctx, "source.ModuleInfo")
 	defer span.End()
 
@@ -148,6 +155,7 @@ func ModuleInfo(ctx context.Context, client *Client, modulePath, v string) (info
 	repo, relativeModulePath, templates, transformCommit, err := matchStatic(modulePath)
 	if err != nil {
 		var static bool
+
 		info, static = gopkgInInfo(modulePath, v)
 		if !static {
 			info, err = moduleInfoDynamic(ctx, client, modulePath, v)
@@ -160,6 +168,7 @@ func ModuleInfo(ctx context.Context, client *Client, modulePath, v string) (info
 		if transformCommit != nil {
 			commit = transformCommit(commit, isHash)
 		}
+
 		info = &Info{
 			repoURL:   trimVCSSuffix("https://" + repo),
 			moduleDir: relativeModulePath,
@@ -167,12 +176,15 @@ func ModuleInfo(ctx context.Context, client *Client, modulePath, v string) (info
 			templates: templates,
 		}
 	}
+
 	if info != nil {
 		adjustVersionedModuleDirectory(ctx, client, info)
 	}
+
 	if strings.HasPrefix(modulePath, "golang.org/") {
 		adjustGoRepoInfo(info, modulePath, version.IsPseudo(v))
 	}
+
 	return info, nil
 	// TODO(golang/go#39627): support launchpad.net, including the special case
 	// in cmd/go/internal/get/vcs.go.
@@ -188,6 +200,7 @@ func newStdlibInfo(version string) (_ *Info, err error) {
 
 	templates := csopensourceTemplates
 	templates.Raw = "https://github.com/golang/go/raw/{commit}/{file}"
+
 	return &Info{
 		repoURL:   stdlib.GoSourceRepoURL,
 		moduleDir: stdlib.Directory(version),
@@ -249,6 +262,7 @@ func adjustGoRepoInfo(info *Info, modulePath string, isHash bool) {
 	if len(parts) >= 2 {
 		suffix = parts[0] + "/" + parts[1]
 	}
+
 	if strings.HasPrefix(suffix, "x/") {
 		if !csXRepos[suffix] {
 			return
@@ -311,7 +325,9 @@ func matchStatic(
 		if matches == nil {
 			continue
 		}
+
 		var repo string
+
 		for i, n := range pat.re.SubexpNames() {
 			if n == "repo" {
 				repo = matches[i]
@@ -329,10 +345,13 @@ func matchStatic(
 		if strings.HasPrefix(repo, "blitiri.com.ar/") {
 			repo = strings.Replace(repo, "/go/", "/git/r/", 1)
 		}
+
 		relativeModulePath = strings.TrimPrefix(moduleOrRepoPath, matches[0])
 		relativeModulePath = strings.TrimPrefix(relativeModulePath, "/")
+
 		return repo, relativeModulePath, pat.templates, pat.transformCommit, nil
 	}
+
 	return "", "", urlTemplates{}, nil, derrors.NotFound
 }
 
@@ -373,6 +392,7 @@ func moduleInfoDynamic(ctx context.Context, client *Client, modulePath, version 
 	// If err != nil, templates will be the zero value, so we can ignore it (same just below).
 	if templates == (urlTemplates{}) {
 		var repo string
+
 		repo, _, templates, transformCommit, _ = matchStatic(removeHTTPScheme(sourceMeta.dirTemplate))
 		if templates == (urlTemplates{}) {
 			if err == nil {
@@ -386,11 +406,14 @@ func moduleInfoDynamic(ctx context.Context, client *Client, modulePath, version 
 			repoURL = "https://" + repo
 		}
 	}
+
 	dir := strings.TrimPrefix(strings.TrimPrefix(modulePath, sourceMeta.repoRootPrefix), "/")
+
 	commit, isHash := commitFromVersion(version, dir)
 	if transformCommit != nil {
 		commit = transformCommit(commit, isHash)
 	}
+
 	return &Info{
 		repoURL:   strings.TrimSuffix(repoURL, "/"),
 		moduleDir: dir,
@@ -433,22 +456,27 @@ func matchLegacyTemplates(ctx context.Context, sm *sourceMeta) (_ urlTemplates, 
 	if sm.fileTemplate == "" {
 		return urlTemplates{}, nil
 	}
+
 	for _, ltm := range legacyTemplateMatches {
 		if ltm.fileRegexp.MatchString(sm.fileTemplate) {
 			return ltm.templates, ltm.transformCommit
 		}
 	}
+
 	log.Printf("matchLegacyTemplates: no matches for repo URL %q; replacing", sm.repoURL)
+
 	rep := strings.NewReplacer(
 		"{/dir}/{file}", "/{file}",
 		"{dir}/{file}", "{file}",
 		"{/dir}", "/{dir}",
 	)
 	line := rep.Replace(sm.fileTemplate)
+
 	file := line
 	if i := strings.LastIndexByte(line, '#'); i > 0 {
 		file = line[:i]
 	}
+
 	return urlTemplates{
 		Repo:      sm.repoURL,
 		Directory: rep.Replace(sm.dirTemplate),
@@ -490,6 +518,7 @@ func removeHTTPScheme(url string) string {
 			return url[len(prefix):]
 		}
 	}
+
 	return url
 }
 
@@ -500,9 +529,11 @@ func removeVersionSuffix(s string) string {
 	if !strings.HasPrefix(base, "v") {
 		return s
 	}
+
 	if n, err := strconv.Atoi(base[1:]); err != nil || n < 2 {
 		return s
 	}
+
 	return strings.TrimSuffix(dir, "/")
 }
 
@@ -644,6 +675,7 @@ func init() {
 		if !found {
 			panic(fmt.Sprintf("pattern %s missing <repo> group", patterns[i].pattern))
 		}
+
 		patterns[i].re = re
 	}
 }
@@ -655,6 +687,7 @@ func giteaTransformCommit(commit string, isHash bool) string {
 	if isHash {
 		return "commit/" + commit
 	}
+
 	return "tag/" + commit
 }
 
@@ -664,6 +697,7 @@ func fdioTransformCommit(commit string, isHash bool) string {
 	if isHash {
 		p = "id"
 	}
+
 	return fmt.Sprintf("%s=%s", p, commit)
 }
 
@@ -750,6 +784,7 @@ func commitFromVersion(vers, relativeModulePath string) (commit string, isHash b
 		if prefix != "" {
 			return prefix + "/" + v, false
 		}
+
 		return v, false
 	}
 }
@@ -768,9 +803,11 @@ func trimVCSSuffix(repoURL string) string {
 	if !strings.HasSuffix(repoURL, ".git") {
 		return repoURL
 	}
+
 	if strings.HasPrefix(repoURL, "https://github.com/") || strings.HasPrefix(repoURL, "https://gitlab.com/") {
 		return strings.TrimSuffix(repoURL, ".git")
 	}
+
 	return repoURL
 }
 
@@ -785,6 +822,7 @@ func expand(s string, match map[string]string) string {
 	for k, v := range match {
 		oldNew = append(oldNew, "{"+k+"}", v)
 	}
+
 	return strings.NewReplacer(oldNew...).Replace(s)
 }
 

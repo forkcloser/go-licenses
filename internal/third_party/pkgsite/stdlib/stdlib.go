@@ -46,6 +46,7 @@ func TagForVersion(v string) (_ string, err error) {
 	if SupportedBranches[v] {
 		return v, nil
 	}
+
 	if strings.HasPrefix(v, "v0.0.0") {
 		return version.Master, nil
 	}
@@ -53,17 +54,22 @@ func TagForVersion(v string) (_ string, err error) {
 	if v == "v1.0.0" {
 		return "go1", nil
 	}
+
 	if !semver.IsValid(v) {
 		return "", fmt.Errorf("%w: requested version is not a valid semantic version: %q ", derrors.InvalidArgument, v)
 	}
+
 	goVersion := semver.Canonical(v)
 	prerelease := semver.Prerelease(goVersion)
 	versionWithoutPrerelease := strings.TrimSuffix(goVersion, prerelease)
+
 	patch := strings.TrimPrefix(versionWithoutPrerelease, semver.MajorMinor(goVersion)+".")
 	if patch == "0" {
 		versionWithoutPrerelease = strings.TrimSuffix(versionWithoutPrerelease, ".0")
 	}
+
 	goVersion = "go" + strings.TrimPrefix(versionWithoutPrerelease, "v")
+
 	if prerelease != "" {
 		// Go prereleases look like  "beta1" instead of "beta.1".
 		// "beta1" is bad for sorting (since beta10 comes before beta9), so
@@ -76,8 +82,10 @@ func TagForVersion(v string) (_ string, err error) {
 			// Remove the dot.
 			prerelease = prerelease[:i-1] + prerelease[i:]
 		}
+
 		goVersion += strings.TrimPrefix(prerelease, "-")
 	}
+
 	return goVersion, nil
 }
 
@@ -91,9 +99,11 @@ func finalDigitsIndex(s string) int {
 			break
 		}
 	}
+
 	if i == len(s)-1 {
 		return -1
 	}
+
 	return i + 1
 }
 

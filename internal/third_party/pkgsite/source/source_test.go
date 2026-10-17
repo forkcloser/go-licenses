@@ -36,15 +36,18 @@ func TestModuleInfo(t *testing.T) {
 
 	check := func(t *testing.T, msg, got, want string, skipReplay bool) {
 		t.Helper()
+
 		if got != want {
 			t.Fatalf("%s:\ngot  %s\nwant %s", msg, got, want)
 		}
+
 		if !skipReplay {
 			res, err := client.Head(got)
 			if err != nil {
 				t.Fatalf("%s: %v", got, err)
 			}
 			defer res.Body.Close()
+
 			if res.StatusCode != http.StatusOK {
 				t.Fatalf("%s: %v", got, res.Status)
 			}
@@ -428,16 +431,20 @@ func TestModuleInfo(t *testing.T) {
 
 func newReplayClient(t *testing.T, record bool) (*http.Client, func()) {
 	replayFilePath := filepath.Join("testdata", t.Name()+".replay")
+
 	if record {
 		httpreplay.DebugHeaders()
 		t.Logf("Recording into %s", replayFilePath)
+
 		if err := os.MkdirAll(filepath.Dir(replayFilePath), 0o755); err != nil {
 			t.Fatal(err)
 		}
+
 		rec, err := httpreplay.NewRecorder(replayFilePath, nil)
 		if err != nil {
 			t.Fatal(err)
 		}
+
 		return rec.Client(), func() {
 			if err := rec.Close(); err != nil {
 				t.Fatal(err)
@@ -448,6 +455,7 @@ func newReplayClient(t *testing.T, record bool) (*http.Client, func()) {
 		if err != nil {
 			t.Fatal(err)
 		}
+
 		return rep.Client(), func() { _ = rep.Close() }
 	}
 }
@@ -474,6 +482,7 @@ func TestMatchStatic(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+
 			if gotRepo != test.wantRepo || gotSuffix != test.wantSuffix {
 				t.Errorf("got %q, %q; want %q, %q", gotRepo, gotSuffix, test.wantRepo, test.wantSuffix)
 			}
@@ -493,6 +502,7 @@ func TestModuleInfoDynamic(t *testing.T) {
 	// The version doesn't figure into the interesting work and we test versions to commits
 	// elsewhere, so use the same version throughout.
 	const version = "v1.2.3"
+
 	for _, test := range []struct {
 		modulePath string
 		want       *Info // if nil, then want error
@@ -625,8 +635,10 @@ func TestModuleInfoDynamic(t *testing.T) {
 				if test.want == nil {
 					return
 				}
+
 				t.Fatal(err)
 			}
+
 			if diff := cmp.Diff(test.want, got, cmp.AllowUnexported(Info{}, urlTemplates{})); diff != "" {
 				t.Errorf("mismatch (-want +got):\n%s", diff)
 			}
@@ -727,6 +739,7 @@ func TestAdjustVersionedModuleDirectory(t *testing.T) {
 				templates: urlTemplates{File: "{repo}/{commit}/{file}"},
 			}
 			adjustVersionedModuleDirectory(ctx, client, info)
+
 			got := info.moduleDir
 			if got != test.want {
 				t.Errorf("got %q, want %q", got, test.want)
@@ -783,6 +796,7 @@ func TestCommitFromVersion(t *testing.T) {
 				if gotCommit != test.wantCommit {
 					t.Errorf("%s commit: got %s, want %s", v, gotCommit, test.wantCommit)
 				}
+
 				if gotIsHash != test.wantIsHash {
 					t.Errorf("%s isHash: got %t, want %t", v, gotIsHash, test.wantIsHash)
 				}
@@ -800,14 +814,17 @@ type testTransport map[string]string
 func (t testTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	statusCode := http.StatusOK
 	req.URL.RawQuery = ""
+
 	body, ok := t[req.URL.String()]
 	if !ok {
 		statusCode = http.StatusNotFound
 	}
+
 	resp := &http.Response{
 		StatusCode: statusCode,
 		Body:       io.NopCloser(strings.NewReader(body)),
 	}
+
 	return resp, nil
 }
 
@@ -881,15 +898,16 @@ var testWeb = map[string]string{
 
 func TestURLTemplates(t *testing.T) {
 	// Check that templates contain the right variables.
-
 	for _, p := range patterns {
 		if strings.Contains(p.pattern, "blitiri") {
 			continue
 		}
+
 		check := func(tmpl string, vars ...string) {
 			if tmpl == "" {
 				return
 			}
+
 			for _, v := range vars {
 				w := "{" + v + "}"
 				if !strings.Contains(tmpl, w) {
@@ -943,6 +961,7 @@ func TestMatchLegacyTemplates(t *testing.T) {
 		},
 	} {
 		gotTemplates, gotTransformCommit := matchLegacyTemplates(t.Context(), &test.sm)
+
 		gotNil := gotTransformCommit == nil
 		if gotTemplates != test.wantTemplates || gotNil != test.wantTransformCommitNil {
 			t.Errorf("%+v:\ngot  (%+v, %t)\nwant (%+v, %t)",

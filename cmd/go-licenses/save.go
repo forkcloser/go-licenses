@@ -51,9 +51,11 @@ var (
 func init() {
 	saveCmd.Flags().
 		StringVar(&savePath, "save_path", "", "Directory into which files should be saved that are required by license terms")
+
 	if err := saveCmd.MarkFlagRequired("save_path"); err != nil {
 		klog.Fatal(err)
 	}
+
 	if err := saveCmd.MarkFlagFilename("save_path"); err != nil {
 		klog.Fatal(err)
 	}
@@ -91,6 +93,7 @@ func saveMain(_ *cobra.Command, args []string) error {
 	}
 
 	libsWithBadLicenses := make(map[licenses.Type][]*licenses.Library)
+
 	for _, lib := range libs {
 		libSaveDir := filepath.Join(savePath, unvendor(lib.Name()))
 
@@ -152,6 +155,7 @@ func copySrc(src, dest string) error {
 	if err := copy.Copy(src, dest, opt); err != nil {
 		return err
 	}
+
 	return nil
 }
 
@@ -161,10 +165,12 @@ func copyNotices(licensePath, dest string) error {
 	}
 
 	src := filepath.Dir(licensePath)
+
 	files, err := os.ReadDir(src)
 	if err != nil {
 		return err
 	}
+
 	for _, f := range files {
 		if fName := f.Name(); !f.IsDir() && noticeRegexp.MatchString(fName) {
 			if err := copy.Copy(filepath.Join(src, fName), filepath.Join(dest, fName)); err != nil {
@@ -172,5 +178,6 @@ func copyNotices(licensePath, dest string) error {
 			}
 		}
 	}
+
 	return nil
 }

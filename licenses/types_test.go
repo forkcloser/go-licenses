@@ -18,6 +18,7 @@ func TestTypes(t *testing.T) {
 	fv := reflect.ValueOf(classifier).Elem().FieldByName("docs")
 
 	uniqueNames := make(map[string]struct{})
+
 	for _, key := range fv.MapKeys() {
 		keyValue := key.String()
 

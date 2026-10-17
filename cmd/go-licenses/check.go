@@ -87,13 +87,16 @@ func checkMain(_ *cobra.Command, args []string) error {
 	for _, lib := range libs {
 		if lib.LicenseFile == "" {
 			fmt.Fprintf(os.Stderr, "Did not find license for library '%v'.\n", lib)
+
 			found = true
+
 			continue
 		}
 
 		for _, license := range lib.Licenses {
 			if hasLicenseNames && !isAllowedLicenseName(license.Name, allowedLicenseNames) {
 				fmt.Fprintf(os.Stderr, "Not allowed license '%s' found for library '%v'.\n", license.Name, lib)
+
 				found = true
 			} else if hasLicenseType && isDisallowedLicenseType(license.Type, disallowedLicenseTypes) {
 				fmt.Fprintf(
@@ -103,6 +106,7 @@ func checkMain(_ *cobra.Command, args []string) error {
 					cases.Title(language.English).String(license.Type.String()),
 					lib,
 				)
+
 				found = true
 			}
 		}

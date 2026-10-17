@@ -125,6 +125,7 @@ func TestFindCandidates(t *testing.T) {
 			if test.rootDir == "" {
 				test.rootDir = "./testdata"
 			}
+
 			licensePathCandidates, err := FindCandidates(test.dir, test.rootDir)
 			if err != nil {
 				t.Fatalf(

@@ -59,32 +59,41 @@ func TestReportCommandE2E(t *testing.T) {
 	tempDir := t.TempDir()
 	goLicensesPath := filepath.Join(tempDir, goLicensesBinary())
 	cmd := exec.Command("go", "build", "-o", goLicensesPath)
+
 	_, err = cmd.Output()
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	t.Logf("Built go-licenses binary in %s.", goLicensesPath)
 
 	for _, tt := range tests {
 		t.Run(tt.workdir, func(t *testing.T) {
 			t.Chdir(filepath.Join(originalWorkDir, fixtureRoot, tt.workdir))
+
 			cmd := exec.Command("go", "mod", "download")
+
 			log, err := cmd.CombinedOutput()
 			if err != nil {
 				t.Fatalf("downloading go modules:\n%s", string(log))
 			}
+
 			args := append([]string{"report", "."}, tt.args...)
 			cmd = exec.Command(goLicensesPath, args...)
 			cmd.Env = goldenPlatform()
 			// Capture stderr to buffer.
 			var stderr bytes.Buffer
+
 			cmd.Stderr = &stderr
+
 			t.Logf("%s $ go-licenses report .", tt.workdir)
+
 			output, err := cmd.Output()
 			if err != nil {
 				t.Logf("\n=== start of log ===\n%s=== end of log ===\n\n\n", stderr.String())
 				t.Fatalf("running go-licenses report: %s. Full log shown above.", err)
 			}
+
 			got := string(output)
 			if *update {
 				err = os.WriteFile(tt.goldenFilePath, output, 0o600)
@@ -92,13 +101,16 @@ func TestReportCommandE2E(t *testing.T) {
 					t.Fatalf("writing golden file: %s", err)
 				}
 			}
+
 			goldenBytes, err := os.ReadFile(tt.goldenFilePath)
 			if err != nil {
 				if errors.Is(err, os.ErrNotExist) {
 					t.Fatalf("reading golden file: %s. Create a golden file by running `go test --update .`", err)
 				}
+
 				t.Fatalf("reading golden file: %s", err)
 			}
+
 			golden := string(goldenBytes)
 			if got != golden {
 				t.Logf("\n=== start of log ===\n%s=== end of log ===\n\n\n", stderr.String())
@@ -158,16 +170,20 @@ func TestCheckCommandE2E(t *testing.T) {
 	tempDir := t.TempDir()
 	goLicensesPath := filepath.Join(tempDir, goLicensesBinary())
 	cmd := exec.Command("go", "build", "-o", goLicensesPath)
+
 	_, err = cmd.Output()
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	t.Logf("Built go-licenses binary in %s.", goLicensesPath)
 
 	for _, tt := range tests {
 		t.Run(tt.workdir, func(t *testing.T) {
 			t.Chdir(filepath.Join(originalWorkDir, fixtureRoot, tt.workdir))
+
 			cmd := exec.Command("go", "mod", "download")
+
 			log, err := cmd.CombinedOutput()
 			if err != nil {
 				t.Fatalf("downloading go modules:\n%s", string(log))
@@ -179,9 +195,12 @@ func TestCheckCommandE2E(t *testing.T) {
 			cmd.Env = goldenPlatform()
 			// Capture stderr to buffer.
 			var stderr bytes.Buffer
+
 			cmd.Stderr = &stderr
 			exitCode := 0
+
 			t.Logf("%s $ go-licenses check .", tt.workdir)
+
 			output, err := cmd.Output()
 			if err != nil {
 				exitCode = -1
@@ -211,13 +230,16 @@ func TestCheckCommandE2E(t *testing.T) {
 					t.Fatalf("writing golden file: %s", err)
 				}
 			}
+
 			goldenBytes, err := os.ReadFile(tt.goldenFilePath)
 			if err != nil {
 				if errors.Is(err, os.ErrNotExist) {
 					t.Fatalf("reading golden file: %s. Create a golden file by running `go test --update .`", err)
 				}
+
 				t.Fatalf("reading golden file: %s", err)
 			}
+
 			golden := string(goldenBytes)
 			if got != golden {
 				t.Logf("\n=== start of log ===\n%s=== end of log ===\n\n\n", stderr.String())
@@ -246,6 +268,7 @@ func goLicensesBinary() string {
 	if runtime.GOOS == "windows" {
 		return "go-licenses.exe"
 	}
+
 	return "go-licenses"
 }
 
