@@ -18,7 +18,7 @@ import (
 	"bytes"
 	"os"
 
-	licenseclassifier "github.com/forkcloser/go-licenses/internal/third_party/licenseclassifier"
+	"github.com/forkcloser/go-licenses/internal/third_party/licenseclassifier"
 	"github.com/forkcloser/go-licenses/internal/third_party/licenseclassifier/assets"
 )
 

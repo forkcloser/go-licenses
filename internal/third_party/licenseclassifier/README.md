@@ -17,3 +17,9 @@ Local modifications:
 - `docDiff` hands go-diff copies of the documents' runes: go-diff writes into the slices it is
   given, and the corpus documents are shared by the matches `Libraries` runs concurrently (a data race
   under `-race`).
+- Held to go-licenses' lint baseline like the rest of the module, formatting included. The
+  package is named `licenseclassifier`, after its directory; `AddContent` returns the tokenizer's
+  error instead of dropping it; parameters nothing read (and the searchset's trace-only `origin`)
+  are gone; the shadowed and the hand-rolled (`max`, `strings.Index` for `Contains`) give way to
+  their standard forms. The long functions and short names it still carries are in the overlay's
+  onboarding backlog.

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package classifier
+package licenseclassifier
 
 import (
 	"strings"
@@ -32,10 +32,13 @@ const (
 // score computes a metric of similarity between the known and unknown
 // document, including the offsets into the unknown that yield the content
 // generating the computed similarity.
-func (c *Classifier) score(id string, unknown, known *indexedDocument, unknownStart, unknownEnd int) (float64, int, int) {
-
+func score(
+	id string,
+	unknown, known *indexedDocument,
+	unknownStart, unknownEnd int,
+) (confidence float64, startOffset, endOffset int) {
 	knownLength := known.size()
-	diffs := docDiff(id, unknown, unknownStart, unknownEnd, known, 0, knownLength)
+	diffs := docDiff(unknown, unknownStart, unknownEnd, known, 0, knownLength)
 
 	start, end := diffRange(known.Norm, diffs)
 	distance := scoreDiffs(id, diffs[start:end])
@@ -95,6 +98,7 @@ func diffLevenshteinWord(diffs []diffmatchpatch.Diff) int {
 	}
 
 	levenshtein += max(insertions, deletions)
+
 	return levenshtein
 }
 
@@ -104,6 +108,7 @@ func isVersionNumber(in string) bool {
 			return false
 		}
 	}
+
 	return true
 }
 
@@ -118,16 +123,16 @@ func scoreDiffs(id string, diffs []diffmatchpatch.Diff) int {
 	// previously cached.
 	prevText := ""
 	prevDelete := ""
+
 	for i, diff := range diffs {
 		text := diff.Text
 		switch diff.Type {
 		case diffmatchpatch.DiffInsert:
-			num := text
-			if i := strings.Index(num, " "); i != -1 {
-				num = num[0:i]
-			}
+			num, _, _ := strings.Cut(text, " ")
+
 			if isVersionNumber(num) && strings.HasSuffix(prevText, "version") {
-				if !strings.HasSuffix(prevText, "the standard version") && !strings.HasSuffix(prevText, "the contributor version") {
+				if !strings.HasSuffix(prevText, "the standard version") &&
+					!strings.HasSuffix(prevText, "the contributor version") {
 					return versionChange
 				}
 			}
@@ -149,19 +154,20 @@ func scoreDiffs(id string, diffs []diffmatchpatch.Diff) int {
 				"GPL-2.0-with-bison-exception":     {"bison exception"},
 				"GPL-2.0-with-classpath-exception": {"class path exception"},
 				"GPL-2.0-with-font-exception":      {"font exception"},
-				"LGPL-2.0":                         {"library"},
-				"ImageMagick":                      {"imagemagick"},
-				"PHP":                              {"php"},
-				"SISSL":                            {"sun standards"},
-				"SGI-B":                            {"silicon graphics"},
-				"SunPro":                           {"sunpro"},
-				"X11":                              {"x consortium"},
+				//nolint:goconst // a word of the licence texts, as each phrase here is
+				"LGPL-2.0":    {"library"},
+				"ImageMagick": {"imagemagick"},
+				"PHP":         {"php"},
+				"SISSL":       {"sun standards"},
+				"SGI-B":       {"silicon graphics"},
+				"SunPro":      {"sunpro"},
+				"X11":         {"x consortium"},
 			}
 
 			for k, ps := range inducedPhrases {
 				if strings.HasPrefix(LicenseName(id), k) {
 					for _, p := range ps {
-						if strings.Index(text, p) != -1 {
+						if strings.Contains(text, p) {
 							// Check to make sure there isn't a corresponding diff for this
 							// insert that also contains the text. This prevents against diff
 							// blocks that are too big and force a false hit on this check,
@@ -169,9 +175,10 @@ func scoreDiffs(id string, diffs []diffmatchpatch.Diff) int {
 							// token but can happen in other cases as well. We don't look just
 							// for delete diffs because the subsequent text may reference the
 							// content in case a URL was truncated.
-							if i+1 < len(diffs) && strings.Index(diffs[i+1].Text, p) != -1 {
+							if i+1 < len(diffs) && strings.Contains(diffs[i+1].Text, p) {
 								continue
 							}
+
 							return introducedPhraseChange
 						}
 					}
@@ -207,8 +214,10 @@ func scoreDiffs(id string, diffs []diffmatchpatch.Diff) int {
 					return lesserGPLChange
 				}
 			}
+
 			prevDelete = text
 		}
 	}
+
 	return diffLevenshteinWord(diffs)
 }

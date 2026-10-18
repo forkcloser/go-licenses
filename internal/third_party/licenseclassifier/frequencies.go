@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package classifier
+package licenseclassifier
 
 type frequencyTable struct {
 	counts map[tokenID]int // key: token ID, value: number of instances of that token

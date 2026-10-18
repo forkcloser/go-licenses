@@ -12,8 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package classifier provides the implementation of the v2 license classifier.
-package classifier
+// Package licenseclassifier identifies licence texts: a vendored copy of
+// github.com/google/licenseclassifier/v2.
+package licenseclassifier
 
 import (
 	"bytes"
@@ -23,13 +24,6 @@ import (
 )
 
 type tokenID int // type to ensure safety when manipulating token identifiers.
-
-// token provides detailed information about a single textual token in the document.
-type token struct {
-	Text     string // normalized text of the token
-	Line     int    // line position of this token in the source
-	Previous string // for the first token in a line, any previous text.
-}
 
 type indexedToken struct {
 	Line int     // line position of this token in the source
@@ -62,10 +56,12 @@ func (d *indexedDocument) normalized() string {
 	var w strings.Builder
 	for i, t := range d.Tokens {
 		w.WriteString(d.dict.getWord(t.ID))
+
 		if (i + 1) != d.size() {
 			w.WriteString(" ")
 		}
 	}
+
 	return w.String()
 }
 
@@ -80,27 +76,27 @@ func computeQ(threshold float64) int {
 	// a value of 1 if necessary (since a threshold level below 50% would generate
 	// a run of 0-length, which is meaningless.)
 	if threshold == 1.0 {
-		return 10 // avoid divide by 0
+		return exactMatchQ
 	}
 
-	return max(1, int((threshold)/(1.0-threshold)))
+	return max(1, int(threshold/(1.0-threshold)))
 }
 
-func max(a, b int) int {
-	if a > b {
-		return a
-	}
-	return b
-}
+// exactMatchQ is the q-gram length for a threshold of 1, where the formula in
+// computeQ divides by zero.
+const exactMatchQ = 10
 
 // AddContent incorporates the provided textual content into the classifier for
 // matching. This will not modify the supplied content.
-func (c *Classifier) AddContent(category, name, variant string, content []byte) {
-	// Since bytes.NewReader().Read() will never return an error, tokenizeStream
-	// will never return an error so it's okay to ignore the return value in this
-	// case.
-	doc, _ := tokenizeStream(bytes.NewReader(content), true, c.dict, true)
+func (c *Classifier) AddContent(category, name, variant string, content []byte) error {
+	doc, err := tokenizeStream(bytes.NewReader(content), true, c.dict, true)
+	if err != nil {
+		return fmt.Errorf("tokenizing %s/%s/%s: %w", category, name, variant, err)
+	}
+
 	c.addDocument(category, name, variant, doc)
+
+	return nil
 }
 
 // addDocument takes a textual document and incorporates it into the classifier for matching.
@@ -108,13 +104,13 @@ func (c *Classifier) addDocument(category, name, variant string, id *indexedDocu
 	// For documents that are part of the corpus, we add them to the dictionary and
 	// compute their associated search data eagerly so they are ready for matching against
 	// candidates.
-	indexName := c.generateDocName(category, name, variant)
+	indexName := docName(category, name, variant)
+
 	id.generateSearchSet(c.q)
-	id.s.origin = indexName
 	c.docs[indexName] = id
 }
 
-func (c *Classifier) generateDocName(category, name, variant string) string {
+func docName(category, name, variant string) string {
 	return fmt.Sprintf("%s%c%s%c%s", category, os.PathSeparator, name, os.PathSeparator, variant)
 }
 
@@ -142,17 +138,21 @@ func (d *dictionary) add(word string) tokenID {
 	idx := tokenID(len(d.words) + 1)
 	d.words[idx] = word
 	d.indices[word] = idx
+
 	return idx
 }
 
-var unknownWord = "UNKNOWN"
-var unknownIndex = tokenID(0)
+const (
+	unknownWord  = "UNKNOWN"
+	unknownIndex = tokenID(0)
+)
 
 // getIndex returns the index of the supplied word, or 0 if the word is not in the dictionary.
 func (d *dictionary) getIndex(word string) tokenID {
 	if idx, found := d.indices[word]; found {
 		return idx
 	}
+
 	return unknownIndex
 }
 
@@ -161,5 +161,6 @@ func (d *dictionary) getWord(index tokenID) string {
 	if word, found := d.words[index]; found {
 		return word
 	}
+
 	return unknownWord
 }
