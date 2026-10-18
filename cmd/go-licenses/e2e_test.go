@@ -23,6 +23,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -77,17 +78,7 @@ func TestCheckCommandE2E(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// This builds go-licenses CLI to temporary dir.
-	tempDir := t.TempDir()
-	goLicensesPath := filepath.Join(tempDir, goLicensesBinary())
-	cmd := exec.Command("go", "build", "-o", goLicensesPath)
-
-	_, err = cmd.Output()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	t.Logf("Built go-licenses binary in %s.", goLicensesPath)
+	goLicensesPath := buildGoLicenses(t)
 
 	for _, tt := range tests {
 		t.Run(tt.workdir, func(t *testing.T) {
@@ -161,6 +152,87 @@ func TestCheckCommandE2E(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestSaveCommandE2E runs save into a fresh path, which it creates, and
+// into one that exists, which it refuses without touching.
+func TestSaveCommandE2E(t *testing.T) {
+	t.Parallel()
+
+	goLicensesPath := buildGoLicenses(t)
+	module := filepath.Join(fixtureRoot, "testdata", "modules", "hello01")
+
+	download := exec.Command("go", "mod", "download")
+	download.Dir = module
+
+	if log, err := download.CombinedOutput(); err != nil {
+		t.Fatalf("downloading go modules:\n%s", log)
+	}
+
+	save := func(t *testing.T, savePath string) (string, error) {
+		t.Helper()
+
+		cmd := exec.Command(goLicensesPath, "save", ".", "--save_path="+savePath)
+		cmd.Dir = module
+		cmd.Env = goldenPlatform()
+
+		var stderr bytes.Buffer
+
+		cmd.Stderr = &stderr
+		err := cmd.Run()
+
+		return stderr.String(), err
+	}
+
+	t.Run("fresh", func(t *testing.T) {
+		t.Parallel()
+
+		savePath := filepath.Join(t.TempDir(), "licenses")
+
+		if stderr, err := save(t, savePath); err != nil {
+			t.Fatalf("save: %v\n%s", err, stderr)
+		}
+
+		saved := filepath.Join(savePath, "github.com", "forkcloser", "go-licenses", "testdata", "modules", "hello01")
+		if _, err := os.Stat(filepath.Join(saved, "LICENSE")); err != nil {
+			t.Fatalf("the module's licence was not saved: %v", err)
+		}
+	})
+
+	t.Run("exists", func(t *testing.T) {
+		t.Parallel()
+
+		savePath := t.TempDir()
+
+		stderr, err := save(t, savePath)
+		if err == nil {
+			t.Fatal("save into an existing path succeeded")
+		}
+
+		if !strings.Contains(stderr, savePath+" already exists") {
+			t.Fatalf("save did not refuse the existing path:\n%s", stderr)
+		}
+
+		entries, err := os.ReadDir(savePath)
+		if err != nil || len(entries) != 0 {
+			t.Fatalf("save wrote into the existing path: %v %v", entries, err)
+		}
+	})
+}
+
+// buildGoLicenses builds the CLI into a temporary directory.
+func buildGoLicenses(t *testing.T) string {
+	t.Helper()
+
+	goLicensesPath := filepath.Join(t.TempDir(), goLicensesBinary())
+
+	if _, err := exec.Command("go", "build", "-o", goLicensesPath).Output(); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Logf("Built go-licenses binary in %s.", goLicensesPath)
+
+	return goLicensesPath
 }
 
 func filterOutput(output string) string {

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package classifier
+package licenseclassifier
 
 import (
 	"slices"
@@ -28,25 +28,38 @@ import (
 // diffRange returns the indices of the beginning and end locations of the diff
 // that reconstruct (as best possible) the source value.
 func diffRange(known string, diffs []diffmatchpatch.Diff) (start, end int) {
-	var foundStart bool
-	var seen string
+	var (
+		foundStart bool
+		seen       string
+	)
+	//nolint:intrange // a loop that runs out leaves end at len(diffs); a range would leave it one short
 	for end = 0; end < len(diffs); end++ {
 		if len(seen) > 1 && seen[:len(seen)-1] == known {
 			break
 		}
+
 		switch diffs[end].Type {
 		case diffmatchpatch.DiffEqual, diffmatchpatch.DiffInsert:
 			if !foundStart {
 				start = end
 				foundStart = true
 			}
+
 			seen += diffs[end].Text + " "
+		case diffmatchpatch.DiffDelete:
+			// Deleted text is not in the source being reconstructed.
 		}
 	}
+
 	return start, end
 }
 
-func docDiff(id string, doc1 *indexedDocument, doc1Start, doc1End int, doc2 *indexedDocument, doc2Start, doc2End int) []diffmatchpatch.Diff {
+func docDiff(
+	doc1 *indexedDocument,
+	doc1Start, doc1End int,
+	doc2 *indexedDocument,
+	doc2Start, doc2End int,
+) []diffmatchpatch.Diff {
 	// Copies: go-diff writes into the slices it is given (diffHalfMatchI),
 	// and these are the corpus documents' own, which concurrent matches share.
 	chars1 := slices.Clone(doc1.runes[doc1Start:doc1End])
@@ -57,6 +70,7 @@ func docDiff(id string, doc1 *indexedDocument, doc1Start, doc1End int, doc2 *ind
 
 	// Recover the words from the previous rune encoding and return the textual diffs.
 	diffs = diffRunesToWords(diffs, doc1.dict)
+
 	return diffs
 }
 
@@ -69,8 +83,12 @@ func diffWordsToRunes(doc *indexedDocument, start, end int) []rune {
 	runes := make([]rune, 0, end-start)
 
 	for _, t := range doc.Tokens[start:end] {
-		runes = append(runes, rune(t.ID))
+		runes = append(
+			runes,
+			rune(t.ID),
+		) // #nosec G115 -- token IDs number the dictionary's words, far inside the rune range
 	}
+
 	return runes
 }
 
@@ -79,10 +97,12 @@ func diffRunesToWords(diffs []diffmatchpatch.Diff, dict *dictionary) []diffmatch
 	hydrated := make([]diffmatchpatch.Diff, 0, len(diffs))
 	for _, aDiff := range diffs {
 		chars := []rune(aDiff.Text)
+
 		var sb strings.Builder
 
 		for i, r := range chars {
 			sb.WriteString(dict.getWord(tokenID(r)))
+
 			if (i + 1) < len(chars) {
 				sb.WriteByte(' ')
 			}
@@ -91,6 +111,7 @@ func diffRunesToWords(diffs []diffmatchpatch.Diff, dict *dictionary) []diffmatch
 		aDiff.Text = sb.String()
 		hydrated = append(hydrated, aDiff)
 	}
+
 	return hydrated
 }
 
@@ -101,6 +122,7 @@ func wordLen(text string) int {
 	if text == "" {
 		return 0
 	}
+
 	return strings.Count(text, " ") + 1
 }
 
@@ -114,5 +136,6 @@ func textLength(diffs []diffmatchpatch.Diff) int {
 	for _, d := range diffs {
 		l += wordLen(d.Text)
 	}
+
 	return l
 }

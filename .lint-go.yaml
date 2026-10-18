@@ -83,12 +83,9 @@ golangci:
               - golang.org/x/text/cases
               - golang.org/x/text/language
               - github.com/otiai10/copy
+              # The vendored licence classifier's token diff and scoring.
+              - github.com/sergi/go-diff/diffmatchpatch
     exclusions:
-      paths:
-        # licenseclassifier v2.0.0, vendored: kept as upstream wrote it, so its
-        # diff against the release is exactly the local modifications its
-        # README lists.
-        - internal/third_party/licenseclassifier/
       rules:
         # TestLibrariesVendored loads a fixture module from its directory:
         # Libraries resolves packages from the working directory, which
@@ -119,20 +116,47 @@ golangci:
             - paralleltest # 2
             - gochecknoglobals # 1
         - path: ^cmd/go-licenses/save\.go$
-          linters: # 19 findings
+          linters: # 18 findings
             - wrapcheck # 8
             - revive # 3
             - err113 # 2
             - exhaustive # 2
-            - errcheck # 1
             - gocognit # 1
             - gosec # 1
             - mnd # 1
-        - path: ^licenses/classifier\.go$
+        # The vendored licence classifier, measured when it came under the baseline.
+        - path: ^internal/third_party/licenseclassifier/assets/embed\.go$
+          linters: # 1 findings
+            - varnamelen # 1
+        - path: ^internal/third_party/licenseclassifier/classifier\.go$
           linters: # 9 findings
+            - varnamelen # 8
+            - gocognit # 1
+        - path: ^internal/third_party/licenseclassifier/diff\.go$
+          linters: # 1 findings
+            - varnamelen # 1
+        - path: ^internal/third_party/licenseclassifier/document\.go$
+          linters: # 2 findings
+            - varnamelen # 2
+        - path: ^internal/third_party/licenseclassifier/frequencies\.go$
+          linters: # 1 findings
+            - varnamelen # 1
+        - path: ^internal/third_party/licenseclassifier/scoring\.go$
+          linters: # 4 findings
+            - varnamelen # 3
+            - gocognit # 1
+        - path: ^internal/third_party/licenseclassifier/searchset\.go$
+          linters: # 17 findings
+            - varnamelen # 15
+            - gocognit # 2
+        - path: ^internal/third_party/licenseclassifier/tokenizer\.go$
+          linters: # 13 findings
+            - varnamelen # 10
+            - gocognit # 3
+        - path: ^licenses/classifier\.go$
+          linters: # 8 findings
             - revive # 3
             - wrapcheck # 3
-            - errcheck # 1
             - gosec # 1
             - iface # 1
         - path: ^licenses/classifier_test\.go$
@@ -176,14 +200,3 @@ golangci:
           linters: # 2 findings
             - paralleltest # 1
             - testpackage # 1
-  formatters:
-    exclusions:
-      paths:
-        # licenseclassifier v2.0.0, vendored: see the linters' exclusion above.
-        - internal/third_party/licenseclassifier/
-nilaway:
-  exclude-errors-in-files:
-    # licenseclassifier v2.0.0, vendored: see the linters' exclusion above. Its
-    # three findings are one flow, AddContent dropping tokenizeStream's error,
-    # which a bytes.Reader never returns.
-    - internal/third_party/licenseclassifier/

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package classifier
+package licenseclassifier
 
 import (
 	"fmt"
@@ -33,7 +33,6 @@ type searchSet struct {
 	Checksums []uint32
 	// ChecksumRanges are the token ranges for the above checksums.
 	ChecksumRanges tokenRanges
-	origin         string // A debugging identifier to label what this searchset is associated with
 
 	nodes []*node
 	q     int // The length of q-grams in this searchset.
@@ -56,19 +55,22 @@ func (n *node) String() string {
 func newSearchSet(s *indexedDocument, q int) *searchSet {
 	// Start generating hash values for all q-grams within the text.
 	h := make(hash)
+
 	if len(s.Tokens) < q {
 		// We can't have a smaller q than the number of tokens.
 		q = len(s.Tokens)
 	}
-	checksums, tokenRanges := generateHashes(h, q, s.Tokens, s.dict)
+
+	checksums, ranges := generateHashes(h, q, s.Tokens, s.dict)
 	sset := &searchSet{
 		Tokens:         s.Tokens,
 		Hashes:         h,
 		Checksums:      checksums,
-		ChecksumRanges: tokenRanges,
+		ChecksumRanges: ranges,
 		q:              q,
 	}
 	sset.generateNodeList()
+
 	return sset
 }
 
@@ -90,15 +92,21 @@ func generateHashes(h hash, q int, toks []indexedToken, dict *dictionary) ([]uin
 	if q == 0 {
 		return nil, nil
 	}
-	var css []uint32
-	var tr tokenRanges
+
+	var (
+		css []uint32
+		tr  tokenRanges
+	)
+
 	crc := crc32.NewIEEE()
 	for offset := 0; offset+q <= len(toks); offset++ {
 		crc.Reset()
-		for i := 0; i < q; i++ {
+
+		for i := range q {
 			crc.Write([]byte(dict.getWord(toks[offset+i].ID)))
 			crc.Write([]byte{' '})
 		}
+
 		cs := crc.Sum32()
 		css = append(css, cs)
 		tr = append(tr, &tokenRange{offset, offset + q})
@@ -114,9 +122,9 @@ func (s *searchSet) generateNodeList() {
 		return
 	}
 
-	for i := 0; i < len(s.Checksums); i++ {
+	for i, checksum := range s.Checksums {
 		s.nodes = append(s.nodes, &node{
-			checksum: s.Checksums[i],
+			checksum: checksum,
 			tokens:   s.ChecksumRanges[i],
 		})
 	}
@@ -137,13 +145,21 @@ type matchRange struct {
 	TokensClaimed int
 }
 
+func (m *matchRange) String() string {
+	return fmt.Sprintf(
+		"S: [%v, %v)-> T: [%v, %v) => %v [%v]",
+		m.SrcStart,
+		m.SrcEnd,
+		m.TargetStart,
+		m.TargetEnd,
+		m.TargetStart-m.SrcStart,
+		m.TokensClaimed,
+	)
+}
+
 // in returns true if the start and end are enclosed in the match range.
 func (m *matchRange) in(other *matchRange) bool {
 	return m.TargetStart >= other.TargetStart && m.TargetEnd <= other.TargetEnd
-}
-
-func (m *matchRange) String() string {
-	return fmt.Sprintf("S: [%v, %v)-> T: [%v, %v) => %v [%v]", m.SrcStart, m.SrcEnd, m.TargetStart, m.TargetEnd, m.TargetStart-m.SrcStart, m.TokensClaimed)
 }
 
 // matchRanges is a list of "matchRange"s. The ranges are monotonically
@@ -162,13 +178,14 @@ func (m matchRanges) Less(i, j int) bool {
 	if m[i].TargetStart != m[j].TargetStart {
 		return m[i].TargetStart < m[j].TargetStart
 	}
+
 	return m[i].SrcStart < m[j].SrcStart
 }
 
 // findPotentialMatches returns the ranges in the target (unknown) text that
 // are best potential matches to the source (known) text.
-func (c *Classifier) findPotentialMatches(src, target *searchSet, confidence float64) matchRanges {
-	matchedRanges := c.getMatchedRanges(src, target, confidence, src.q)
+func findPotentialMatches(src, target *searchSet, confidence float64) matchRanges {
+	matchedRanges := getMatchedRanges(src, target, confidence, src.q)
 	if len(matchedRanges) == 0 {
 		return nil
 	}
@@ -194,11 +211,19 @@ func (c *Classifier) findPotentialMatches(src, target *searchSet, confidence flo
 // target document. This routine intentionally does not accurately track error
 // contributions from merging runs, trading false positives (but not false
 // negatives), for faster performance.
-func (c *Classifier) fuseRanges(origin string, matched matchRanges, confidence float64, size int, runs []matchRange, targetSize int) matchRanges {
+func fuseRanges(
+	matched matchRanges,
+	confidence float64,
+	size int,
+	runs []matchRange,
+	targetSize int,
+) matchRanges {
 	var claimed matchRanges
+
 	errorMargin := int(math.Round(float64(size) * (1.0 - confidence)))
 
 	filter := make([]bool, targetSize)
+
 	for _, m := range runs {
 		for i := m.SrcStart; i < m.SrcEnd; i++ {
 			// Only consider these offsets if they fit into the target document, since
@@ -223,11 +248,11 @@ func (c *Classifier) fuseRanges(origin string, matched matchRanges, confidence f
 		// source in a target that aren't part of a real hit. We see many small
 		// references (the name of a license) but not large chunks of the license.
 		if off < 0 {
-			if -off <= errorMargin {
-				off = 0
-			} else {
+			if -off > errorMargin {
 				continue
 			}
+
+			off = 0
 		}
 
 		// If the filter is false, there was not sufficient token density in that
@@ -248,7 +273,7 @@ func (c *Classifier) fuseRanges(origin string, matched matchRanges, confidence f
 			// The contribution needs to add more value than accumulated error. This prevents
 			// against spurious matches of a reference to a license incorrectly overextending the
 			// match range.
-			if withinError && m.TokensClaimed > int(sampleError) {
+			if withinError && m.TokensClaimed > sampleError {
 				if m.in(c) {
 					// This can cause too many tokens to be claimed, but that's fine since we want to avoid
 					// undercounting and missing content.
@@ -281,6 +306,7 @@ func (c *Classifier) fuseRanges(origin string, matched matchRanges, confidence f
 					// right.
 				}
 			}
+
 			if !unclaimed {
 				break
 			}
@@ -292,14 +318,16 @@ func (c *Classifier) fuseRanges(origin string, matched matchRanges, confidence f
 			claimed = append(claimed, m)
 		}
 	}
+
 	sort.Sort(claimed)
+
 	return claimed
 }
 
 // getMatchedRanges finds the ranges in the target text that match the source
 // text. The ranges returned are ordered from the entries with the most matched
 // tokens to the least.
-func (c *Classifier) getMatchedRanges(src, target *searchSet, confidence float64, q int) matchRanges {
+func getMatchedRanges(src, target *searchSet, confidence float64, q int) matchRanges {
 	// Assemble a list of all the matched q-grams without any consideration to
 	// error tolerances.
 	matched := targetMatchedRanges(src, target)
@@ -320,7 +348,7 @@ func (c *Classifier) getMatchedRanges(src, target *searchSet, confidence float64
 	// significantly since processing token matches is an N^2 (or worse)
 	// operation, so reducing N is a big win.
 
-	runs := c.detectRuns(src.origin, matched, len(target.Tokens), len(src.Tokens), confidence, q)
+	runs := detectRuns(matched, len(target.Tokens), len(src.Tokens), confidence, q)
 
 	// If there are no target runs of source tokens, we're done.
 	if len(runs) == 0 {
@@ -331,12 +359,19 @@ func (c *Classifier) getMatchedRanges(src, target *searchSet, confidence float64
 	// match ranges into larger matches (with possible errors) to see if we can
 	// produce large enough runs that pass the confidence threshold.
 
-	fr := c.fuseRanges(src.origin, matched, confidence, len(src.Tokens), runs, len(target.Tokens))
+	fr := fuseRanges(matched, confidence, len(src.Tokens), runs, len(target.Tokens))
+
 	return fr
 }
 
-func (c *Classifier) detectRuns(origin string, matched matchRanges, targetLength, subsetLength int, threshold float64, q int) []matchRange {
+func detectRuns(
+	matched matchRanges,
+	targetLength, subsetLength int,
+	threshold float64,
+	q int,
+) []matchRange {
 	hits := make([]bool, targetLength)
+
 	for _, m := range matched {
 		for idx := m.TargetStart; idx < m.TargetEnd; idx++ {
 			hits[idx] = true
@@ -346,6 +381,7 @@ func (c *Classifier) detectRuns(origin string, matched matchRanges, targetLength
 	if len(hits) == 0 {
 		return nil
 	}
+
 	var out []int
 
 	total := 0
@@ -357,7 +393,7 @@ func (c *Classifier) detectRuns(origin string, matched matchRanges, targetLength
 		subsetLength = len(hits)
 	}
 	// Initialize our sliding window value.
-	for i := 0; i < subsetLength; i++ {
+	for i := range subsetLength {
 		if hits[i] {
 			total++
 		}
@@ -373,14 +409,17 @@ func (c *Classifier) detectRuns(origin string, matched matchRanges, targetLength
 		if hits[i-1] {
 			total--
 		}
+
 		end := i + subsetLength - 1
 		if end < len(hits) && hits[i+subsetLength-1] {
 			total++
 		}
+
 		if total >= target {
 			out = append(out, i)
 		}
 	}
+
 	if len(out) == 0 {
 		return nil
 	}
@@ -409,6 +448,7 @@ func targetMatchedRanges(src, target *searchSet) matchRanges {
 	offsetMappings := make(map[int][]*matchRange)
 
 	var matched matchRanges
+
 	for _, tgtNode := range target.nodes {
 		sr, ok := src.Hashes[tgtNode.checksum]
 		if !ok {
@@ -425,9 +465,11 @@ func targetMatchedRanges(src, target *searchSet) matchRanges {
 					// This new value extends. Update the value in place
 					om[lastIdx].SrcEnd = sv.End
 					om[lastIdx].TargetEnd = tv.End
+
 					continue
 				}
 			}
+
 			offsetMappings[offset] = append(offsetMappings[offset], &matchRange{
 				SrcStart:    sv.Start,
 				SrcEnd:      sv.End,
@@ -442,9 +484,12 @@ func targetMatchedRanges(src, target *searchSet) matchRanges {
 		for _, m := range mr {
 			m.TokensClaimed = m.TargetEnd - m.TargetStart
 		}
+
 		matched = append(matched, mr...)
 	}
+
 	sort.Sort(matched)
+
 	return matched
 }
 

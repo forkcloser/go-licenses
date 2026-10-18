@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package classifier
+package licenseclassifier
 
 import (
 	"fmt"
@@ -61,7 +61,33 @@ func (d Matches) Less(i, j int) bool {
 	return di.EndTokenIndex > dj.EndTokenIndex
 }
 
-// Match reports instances of the supplied content in the corpus.
+// Classifier provides methods for identifying open source licenses in text
+// content.
+type Classifier struct {
+	dict      *dictionary
+	docs      map[string]*indexedDocument
+	threshold float64
+	q         int // The value of q for q-grams in this corpus
+}
+
+// NewClassifier creates a classifier with an empty corpus.
+func NewClassifier(threshold float64) *Classifier {
+	classifier := &Classifier{
+		dict:      newDictionary(),
+		docs:      make(map[string]*indexedDocument),
+		threshold: threshold,
+		q:         computeQ(threshold),
+	}
+
+	return classifier
+}
+
+// MatchFrom finds matches within the read content.
+func (c *Classifier) MatchFrom(in io.Reader) (Results, error) {
+	return c.match(in)
+}
+
+// match reports instances of the supplied content in the corpus.
 func (c *Classifier) match(in io.Reader) (Results, error) {
 	id, err := tokenizeStream(in, true, c.dict, false)
 	if err != nil {
@@ -69,6 +95,7 @@ func (c *Classifier) match(in io.Reader) (Results, error) {
 	}
 
 	firstPass := make(map[string]*indexedDocument)
+
 	for l, d := range c.docs {
 		sim := id.tokenSimilarity(d)
 
@@ -88,14 +115,16 @@ func (c *Classifier) match(in io.Reader) (Results, error) {
 	id.generateSearchSet(c.q)
 
 	var candidates Matches
+
 	candidates = append(candidates, id.Matches...)
 
 	for l, d := range firstPass {
-		matches := c.findPotentialMatches(d.s, id.s, c.threshold)
+		matches := findPotentialMatches(d.s, id.s, c.threshold)
 		for _, m := range matches {
 			startIndex := m.TargetStart
 			endIndex := m.TargetEnd
-			conf, startOffset, endOffset := c.score(l, id, d, startIndex, endIndex)
+
+			conf, startOffset, endOffset := score(l, id, d, startIndex, endIndex)
 			if conf >= c.threshold && (endIndex-startIndex-startOffset-endOffset) > 0 {
 				candidates = append(candidates, &Match{
 					Name:            LicenseName(l),
@@ -108,10 +137,11 @@ func (c *Classifier) match(in io.Reader) (Results, error) {
 					EndTokenIndex:   endIndex - endOffset - 1,
 				})
 			}
-
 		}
 	}
+
 	sort.Sort(candidates)
+
 	retain := make([]bool, len(candidates))
 	for i, c := range candidates {
 		// Filter out overlapping licenses based primarily on confidence. Since
@@ -125,9 +155,9 @@ func (c *Classifier) match(in io.Reader) (Results, error) {
 		// perfect match of a smaller license, we want to keep that. This handles
 		// licenses that include another license as a subtext. NPL contains MPL
 		// as a concrete example.
-
 		keep := true
 		proposals := make(map[int]bool)
+
 		for j, o := range candidates {
 			if j == i {
 				break
@@ -139,7 +169,6 @@ func (c *Classifier) match(in io.Reader) (Results, error) {
 				// The confidence rating on NPL-1.1 will cause Xnet to not be retained, which is correct, but it
 				// shouldn't be retained if the token confidence for MPL is higher than NPL since the NPL-specific
 				// bits are missing.
-
 				ctoks := float64(c.EndTokenIndex - c.StartTokenIndex)
 				otoks := float64(o.EndTokenIndex - o.StartTokenIndex)
 				cconf := ctoks * c.Confidence
@@ -164,6 +193,7 @@ func (c *Classifier) match(in io.Reader) (Results, error) {
 				break
 			}
 		}
+
 		if keep {
 			retain[i] = true
 			for p, v := range proposals {
@@ -173,40 +203,17 @@ func (c *Classifier) match(in io.Reader) (Results, error) {
 	}
 
 	var out Matches
+
 	for i, keep := range retain {
 		if keep {
 			out = append(out, candidates[i])
 		}
 	}
+
 	return Results{
 		Matches:         out,
 		TotalInputLines: id.Tokens[len(id.Tokens)-1].Line,
 	}, nil
-}
-
-// Classifier provides methods for identifying open source licenses in text
-// content.
-type Classifier struct {
-	dict      *dictionary
-	docs      map[string]*indexedDocument
-	threshold float64
-	q         int // The value of q for q-grams in this corpus
-}
-
-// NewClassifier creates a classifier with an empty corpus.
-func NewClassifier(threshold float64) *Classifier {
-	classifier := &Classifier{
-		dict:      newDictionary(),
-		docs:      make(map[string]*indexedDocument),
-		threshold: threshold,
-		q:         computeQ(threshold),
-	}
-	return classifier
-}
-
-// MatchFrom finds matches within the read content.
-func (c *Classifier) MatchFrom(in io.Reader) (Results, error) {
-	return c.match(in)
 }
 
 func detectionType(in string) string {
@@ -226,12 +233,12 @@ func LicenseName(in string) string {
 	return splits[1]
 }
 
-// contains returns true iff b is completely inside a
+// contains returns true iff b is completely inside a.
 func contains(a, b *Match) bool {
 	return a.StartLine <= b.StartLine && a.EndLine >= b.EndLine
 }
 
-// returns true iff b <= a <= c
+// returns true iff b <= a <= c.
 func between(a, b, c int) bool {
 	return b <= a && a <= c
 }

@@ -12,9 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package classifier
+package licenseclassifier
 
 import (
+	"errors"
+	"fmt"
 	"html"
 	"io"
 	"regexp"
@@ -23,12 +25,13 @@ import (
 	"unicode/utf8"
 )
 
-var eol = "\n"
+const eol = "\n"
 
 func header(in string) bool {
-	if len(in) == 0 {
+	if in == "" {
 		return false
 	}
+
 	p, e := in[:len(in)-1], in[len(in)-1]
 	switch e {
 	case '.', ':', ')':
@@ -42,24 +45,32 @@ func header(in string) bool {
 			if unicode.IsDigit(r) || r == '.' {
 				continue
 			}
+
 			return false
 		}
+
 		return true
 	}
+
 	return false
 }
 
+//nolint:gochecknoglobals // a lookup table built once and only read
 var listMarker = func() map[string]bool {
 	const allListMarkers = "a b c d e f g h i j k l m n o p q r ii iii iv v vi vii viii ix xi xii xiii xiv xv"
+
 	l := map[string]bool{}
-	for _, marker := range strings.Split(allListMarkers, " ") {
+	for marker := range strings.SplitSeq(allListMarkers, " ") {
 		l[marker] = true
 	}
+
 	return l
 }()
 
 // ignorableTexts is a list of lines at the start of the string we can remove
 // to get a cleaner match.
+//
+//nolint:gochecknoglobals // compiled once and only read
 var ignorableTexts = []*regexp.Regexp{
 	regexp.MustCompile(`(?i)^(.{1,5})?copyright (\(c\) )?(\[yyyy\]|\d{4})[,.]?.*$`),
 	regexp.MustCompile(`(?i)^(.{1,5})?copyright \(c\) \[dates of first publication\].*$`),
@@ -67,10 +78,7 @@ var ignorableTexts = []*regexp.Regexp{
 }
 
 // tokenizeStream reads bytes from src and produces an indexedDocument of its
-// cotent. tokenizeStream will never return an error of its own, it can only
-// return an error from the provided Reader. If the provided Reader never
-// returns an error, it is safe to assume that tokenizeStream will not return an
-// error.
+// content. It fails only when reading src does.
 func tokenizeStream(src io.Reader, normalize bool, dict *dictionary, updateDict bool) (*indexedDocument, error) {
 	const bufSize = 1024
 	// The longest UTF-8 encoded rune is 4 bytes, so we keep enough leftover bytes
@@ -93,7 +101,7 @@ func tokenizeStream(src io.Reader, normalize bool, dict *dictionary, updateDict 
 	var doc indexedDocument
 
 	isEOF := func(in error) bool {
-		return in == io.EOF || in == io.ErrUnexpectedEOF
+		return errors.Is(in, io.EOF) || errors.Is(in, io.ErrUnexpectedEOF)
 	}
 
 	// Read out the stream in chunks
@@ -106,11 +114,13 @@ func tokenizeStream(src io.Reader, normalize bool, dict *dictionary, updateDict 
 			// buffer.
 			tgt = idx + n
 		} else if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("reading the text: %w", err)
 		}
 
 		for idx = 0; idx < tgt; {
-			r, n := utf8.DecodeRune(rbuf[idx:])
+			var r rune
+
+			r, n = utf8.DecodeRune(rbuf[idx:])
 			idx += n
 
 			if r == '\n' {
@@ -120,34 +130,39 @@ func tokenizeStream(src io.Reader, normalize bool, dict *dictionary, updateDict 
 				// strike that rune and keep accumulating.
 				// Otherwise we treat it like a space and
 				// flush the word
-
 				if len(obuf) > 0 {
 					if obuf[len(obuf)-1] == '-' {
 						obuf = obuf[0 : len(obuf)-1]
 						deferredEOL = true
+
 						continue
 					}
 
 					// Append the word fragment to the line buffer
-					linebuf = append(linebuf, flushBuf(len(linebuf), obuf, normalize, ld))
+					linebuf = append(linebuf, flushBuf(obuf, ld))
 				}
 
 				// If there is something in the line to process, do so now
 				if len(linebuf) > 0 {
-					appendToDoc(&doc, dict, line, linebuf, ld, normalize, updateDict, linebuf)
+					appendToDoc(&doc, dict, line, linebuf, ld, normalize, updateDict)
 					linebuf = nil
 					obuf = nil
 				}
+
 				if !normalize {
 					tokID := dict.getIndex(eol)
 					if tokID == unknownIndex {
 						tokID = dict.add(eol)
 					}
+
 					doc.Tokens = append(doc.Tokens, indexedToken{
 						ID:   tokID,
-						Line: line})
+						Line: line,
+					})
 				}
+
 				line++
+
 				continue
 			}
 
@@ -161,8 +176,10 @@ func tokenizeStream(src io.Reader, normalize bool, dict *dictionary, updateDict 
 					if normalize {
 						r = unicode.ToLower(r)
 					}
+
 					obuf = utf8.AppendRune(obuf, r)
 				}
+
 				continue
 			}
 
@@ -180,16 +197,18 @@ func tokenizeStream(src io.Reader, normalize bool, dict *dictionary, updateDict 
 				// token and flush it out.
 				idx -= n
 
-				linebuf = append(linebuf, flushBuf(len(linebuf), obuf, normalize, ld))
+				linebuf = append(linebuf, flushBuf(obuf, ld))
 				if deferredWord {
-					appendToDoc(&doc, dict, line, linebuf, ld, normalize, updateDict, linebuf)
+					appendToDoc(&doc, dict, line, linebuf, ld, normalize, updateDict)
 					linebuf = nil
 					deferredWord = false
 					// Increment the line count now so the remainder token is credited
 					// to the previous line number.
 					line++
 				}
+
 				obuf = make([]byte, 0)
+
 				continue
 			}
 
@@ -204,6 +223,7 @@ func tokenizeStream(src io.Reader, normalize bool, dict *dictionary, updateDict 
 				for _, t := range rep {
 					obuf = utf8.AppendRune(obuf, unicode.ToLower(t))
 				}
+
 				continue
 			}
 
@@ -224,20 +244,29 @@ func tokenizeStream(src io.Reader, normalize bool, dict *dictionary, updateDict 
 
 	// Process the remaining bytes in the buffer
 	if len(obuf) > 0 {
-		linebuf = append(linebuf, flushBuf(len(linebuf), obuf, normalize, ld))
+		linebuf = append(linebuf, flushBuf(obuf, ld))
 	}
+
 	if len(linebuf) > 0 {
-		appendToDoc(&doc, dict, line, linebuf, ld, normalize, updateDict, linebuf)
+		appendToDoc(&doc, dict, line, linebuf, ld, normalize, updateDict)
 	}
 
 	doc.dict = dict
 	doc.generateFrequencies()
 	doc.runes = diffWordsToRunes(&doc, 0, doc.size())
 	doc.Norm = doc.normalized()
+
 	return &doc, nil
 }
 
-func appendToDoc(doc *indexedDocument, dict *dictionary, line int, in []tokenID, ld *dictionary, normalize bool, updateDict bool, linebuf []tokenID) {
+func appendToDoc(
+	doc *indexedDocument,
+	dict *dictionary,
+	line int,
+	linebuf []tokenID,
+	ld *dictionary,
+	normalize, updateDict bool,
+) {
 	tokens, m := stringifyLineBuf(dict, line, linebuf, ld, normalize, updateDict)
 	if tokens != nil {
 		doc.Tokens = append(doc.Tokens, tokens...)
@@ -246,17 +275,27 @@ func appendToDoc(doc *indexedDocument, dict *dictionary, line int, in []tokenID,
 	}
 }
 
-func stringifyLineBuf(dict *dictionary, line int, in []tokenID, ld *dictionary, normalize bool, updateDict bool) ([]indexedToken, *Match) {
+func stringifyLineBuf(
+	dict *dictionary,
+	line int,
+	in []tokenID,
+	ld *dictionary,
+	normalize, updateDict bool,
+) ([]indexedToken, *Match) {
 	if len(in) == 0 {
 		return nil, nil
 	}
+
 	var sb strings.Builder
+
 	for i, r := range in {
 		out := ld.getWord(r)
 		if out == "" {
 			continue
 		}
+
 		sb.WriteString(out)
+
 		if i < len(in)-1 {
 			sb.WriteByte(' ')
 		}
@@ -266,11 +305,18 @@ func stringifyLineBuf(dict *dictionary, line int, in []tokenID, ld *dictionary, 
 
 	for _, re := range ignorableTexts {
 		if re.MatchString(out) {
-			return nil, &Match{Name: "Copyright", MatchType: "Copyright", Confidence: 1.0, StartLine: line, EndLine: line}
+			return nil, &Match{
+				Name:       "Copyright",
+				MatchType:  "Copyright",
+				Confidence: 1.0,
+				StartLine:  line,
+				EndLine:    line,
+			}
 		}
 	}
 
 	var tokens []indexedToken
+
 	for i, r := range in {
 		txt := cleanupToken(i, ld.getWord(r), normalize)
 		if txt != "" {
@@ -280,6 +326,7 @@ func stringifyLineBuf(dict *dictionary, line int, in []tokenID, ld *dictionary, 
 			} else {
 				tokID = dict.getIndex(txt)
 			}
+
 			tokens = append(tokens, indexedToken{
 				Line: line,
 				ID:   tokID,
@@ -299,7 +346,7 @@ func normalizeToken(in string) string {
 	return strings.ReplaceAll(in, "https", "http")
 }
 
-func flushBuf(pos int, obuf []byte, normalizeWord bool, ld *dictionary) tokenID {
+func flushBuf(obuf []byte, ld *dictionary) tokenID {
 	// clean up the contents of the rune buffer
 	token := string(obuf)
 	// escape sequences can occur anywhere in the string, not just the beginning
@@ -313,7 +360,9 @@ func flushBuf(pos int, obuf []byte, normalizeWord bool, ld *dictionary) tokenID 
 
 func cleanupToken(pos int, in string, normalizeWord bool) string {
 	r, _ := utf8.DecodeRuneInString(in)
+
 	var out strings.Builder
+
 	if pos == 0 && header(in) {
 		return ""
 	}
@@ -336,6 +385,7 @@ func cleanupToken(pos int, in string, normalizeWord bool) string {
 			for strings.HasSuffix(res, ".") {
 				res = res[0 : len(res)-1]
 			}
+
 			return res
 		}
 	}
@@ -357,9 +407,11 @@ func cleanupToken(pos int, in string, normalizeWord bool) string {
 	if iw, ok := interchangeableWords[tok]; ok && normalizeWord {
 		return iw
 	}
+
 	return tok
 }
 
+//nolint:gochecknoglobals // a lookup table, only read
 var interchangeableWords = map[string]string{
 	"analyse":         "analyze",
 	"artefact":        "artifact",
@@ -403,6 +455,7 @@ var interchangeableWords = map[string]string{
 	"sub license":    "sublicense",
 }
 
+//nolint:gochecknoglobals // a lookup table, only read
 var punctuationMappings = map[rune]string{
 	'-': "-",
 	'‒': "-",
