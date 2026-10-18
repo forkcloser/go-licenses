@@ -119,20 +119,18 @@ golangci:
             - paralleltest # 2
             - gochecknoglobals # 1
         - path: ^cmd/go-licenses/save\.go$
-          linters: # 19 findings
+          linters: # 18 findings
             - wrapcheck # 8
             - revive # 3
             - err113 # 2
             - exhaustive # 2
-            - errcheck # 1
             - gocognit # 1
             - gosec # 1
             - mnd # 1
         - path: ^licenses/classifier\.go$
-          linters: # 9 findings
+          linters: # 8 findings
             - revive # 3
             - wrapcheck # 3
-            - errcheck # 1
             - gosec # 1
             - iface # 1
         - path: ^licenses/classifier_test\.go$

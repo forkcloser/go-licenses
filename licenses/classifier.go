@@ -15,6 +15,7 @@
 package licenses
 
 import (
+	"bytes"
 	"os"
 
 	licenseclassifier "github.com/forkcloser/go-licenses/internal/third_party/licenseclassifier"
@@ -52,13 +53,12 @@ func (c *googleClassifier) Identify(licensePath string) ([]License, error) {
 		return nil, nil
 	}
 
-	file, err := os.Open(licensePath)
+	content, err := os.ReadFile(licensePath)
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close()
 
-	matches, err := c.classifier.MatchFrom(file)
+	matches, err := c.classifier.MatchFrom(bytes.NewReader(content))
 	if err != nil {
 		return nil, err
 	}
