@@ -74,6 +74,15 @@ golangci:
               - github.com/alecthomas/kong
               - github.com/mycophonic/primordium/app/logger
               - github.com/mycophonic/primordium/app/shutdown
+              # What go-licenses is built on: go/packages loads the
+              # dependency graph, errgroup classifies its licence files
+              # concurrently, x/text titles the licence types check prints,
+              # and otiai10/copy writes save's tree.
+              - golang.org/x/tools/go/packages
+              - golang.org/x/sync/errgroup
+              - golang.org/x/text/cases
+              - golang.org/x/text/language
+              - github.com/otiai10/copy
     exclusions:
       paths:
         # licenseclassifier v2.0.0, vendored: kept as upstream wrote it, so its
@@ -98,8 +107,7 @@ golangci:
         # Counts are the measurement at enrolment, per file and linter: 518 in 24 files.
         # ---------------------------------------------------------------------------
         - path: ^cmd/go-licenses/check\.go$
-          linters: # 8 findings
-            - depguard # 2
+          linters: # 6 findings
             - wrapcheck # 2
             - err113 # 1
             - gocognit # 1
@@ -111,21 +119,19 @@ golangci:
             - paralleltest # 2
             - gochecknoglobals # 1
         - path: ^cmd/go-licenses/save\.go$
-          linters: # 20 findings
+          linters: # 19 findings
             - wrapcheck # 8
             - revive # 3
             - err113 # 2
             - exhaustive # 2
-            - depguard # 1
             - errcheck # 1
             - gocognit # 1
             - gosec # 1
             - mnd # 1
         - path: ^licenses/classifier\.go$
-          linters: # 11 findings
+          linters: # 9 findings
             - revive # 3
             - wrapcheck # 3
-            - depguard # 2
             - errcheck # 1
             - gosec # 1
             - iface # 1
@@ -146,9 +152,8 @@ golangci:
             - paralleltest # 2
             - testpackage # 1
         - path: ^licenses/library\.go$
-          linters: # 10 findings
+          linters: # 8 findings
             - revive # 3
-            - depguard # 2
             - wrapcheck # 2
             - err113 # 1
             - gocognit # 1
@@ -157,9 +162,6 @@ golangci:
           linters: # 3 findings
             - paralleltest # 2
             - testpackage # 1
-        - path: ^licenses/module\.go$
-          linters: # 1 findings
-            - depguard # 1
         - path: ^licenses/restrictiveness\.go$
           linters: # 9 findings
             - exhaustive # 4

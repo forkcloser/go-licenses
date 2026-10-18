@@ -15,6 +15,7 @@
 package classifier
 
 import (
+	"slices"
 	"strings"
 
 	"github.com/sergi/go-diff/diffmatchpatch"
@@ -46,8 +47,10 @@ func diffRange(known string, diffs []diffmatchpatch.Diff) (start, end int) {
 }
 
 func docDiff(id string, doc1 *indexedDocument, doc1Start, doc1End int, doc2 *indexedDocument, doc2Start, doc2End int) []diffmatchpatch.Diff {
-	chars1 := doc1.runes[doc1Start:doc1End]
-	chars2 := doc2.runes[doc2Start:doc2End]
+	// Copies: go-diff writes into the slices it is given (diffHalfMatchI),
+	// and these are the corpus documents' own, which concurrent matches share.
+	chars1 := slices.Clone(doc1.runes[doc1Start:doc1End])
+	chars2 := slices.Clone(doc2.runes[doc2Start:doc2End])
 
 	dmp := diffmatchpatch.New()
 	diffs := dmp.DiffMainRunes(chars1, chars2, false)
