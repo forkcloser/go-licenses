@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -24,6 +25,13 @@ type Module struct {
 	Notice     string // content of a NOTICE file beside the license, when set
 	SubLicense string // corpus text for a LICENSE in a "sub" package of the module
 }
+
+// The modes of what Build writes: directories the test alone enters, files
+// the test alone reads.
+const (
+	dirMode  = 0o750
+	fileMode = 0o600
+)
 
 // Workspace is the built tree: Root holds one directory per module; App is
 // the application module's directory, the one to run the tool in.
@@ -51,7 +59,8 @@ func Text(t *testing.T, name string) string {
 	dir := filepath.Join(corpus(t), name)
 
 	for _, candidate := range []string{"pristine.txt", "license.txt", "a.txt"} {
-		if b, err := os.ReadFile(filepath.Join(dir, candidate)); err == nil {
+		b, err := os.ReadFile(filepath.Join(dir, candidate)) // #nosec G304 -- a corpus file inside the module
+		if err == nil {
 			return string(b)
 		}
 	}
@@ -64,13 +73,13 @@ func Text(t *testing.T, name string) string {
 // Build writes the workspace: the application module importing every
 // module in deps (and testOnly from a test file alone), each dependency a
 // module of its own with its files.
-func Build(t *testing.T, deps []Module, testOnly []Module) Workspace {
+func Build(t *testing.T, deps, testOnly []Module) Workspace {
 	t.Helper()
 
 	root := t.TempDir()
-	ws := Workspace{Root: root, App: filepath.Join(root, "app")}
+	workspace := Workspace{Root: root, App: filepath.Join(root, "app")}
 
-	all := append(append([]Module{}, deps...), testOnly...)
+	all := slices.Concat(deps, testOnly)
 
 	var gomod strings.Builder
 
@@ -81,29 +90,29 @@ func Build(t *testing.T, deps []Module, testOnly []Module) Workspace {
 		gomod.WriteString("replace " + m.Path + " => ../" + dirOf(m.Path) + "\n")
 	}
 
-	write(t, filepath.Join(ws.App, "go.mod"), gomod.String())
-	write(t, filepath.Join(ws.App, "main.go"), program("main", deps, "func main() { use() }\n"))
+	write(t, filepath.Join(workspace.App, "go.mod"), gomod.String())
+	write(t, filepath.Join(workspace.App, "main.go"), program("main", deps, "func main() { use() }\n"))
 
 	if len(testOnly) > 0 {
-		write(t, filepath.Join(ws.App, "main_test.go"), program("main", testOnly, "func init() { use() }\n"))
+		write(t, filepath.Join(workspace.App, "main_test.go"), program("main", testOnly, "func init() { use() }\n"))
 	}
 
-	for _, m := range all {
-		dir := filepath.Join(root, dirOf(m.Path))
+	for _, module := range all {
+		dir := filepath.Join(root, dirOf(module.Path))
 
 		var mod strings.Builder
 
-		mod.WriteString("module " + m.Path + "\n\ngo 1.26\n\n")
+		mod.WriteString("module " + module.Path + "\n\ngo 1.26\n\n")
 
-		for _, imp := range m.Imports {
+		for _, imp := range module.Imports {
 			mod.WriteString("require " + imp + " v0.0.0\n")
 			mod.WriteString("replace " + imp + " => ../" + dirOf(imp) + "\n")
 		}
 
 		write(t, filepath.Join(dir, "go.mod"), mod.String())
-		write(t, filepath.Join(dir, "lib.go"), program(dirOf(m.Path), modulesOf(all, m.Imports), ""))
+		write(t, filepath.Join(dir, "lib.go"), program(dirOf(module.Path), modulesOf(all, module.Imports), ""))
 
-		for name, text := range m.Licenses {
+		for name, text := range module.Licenses {
 			if strings.HasPrefix(text, "\n") {
 				write(t, filepath.Join(dir, name), text[1:])
 			} else {
@@ -111,18 +120,22 @@ func Build(t *testing.T, deps []Module, testOnly []Module) Workspace {
 			}
 		}
 
-		if m.Notice != "" {
-			write(t, filepath.Join(dir, "NOTICE"), m.Notice)
+		if module.Notice != "" {
+			write(t, filepath.Join(dir, "NOTICE"), module.Notice)
 		}
 
-		if m.SubLicense != "" {
-			write(t, filepath.Join(dir, "sub", "sub.go"), "package sub\n\n// Use is the sub package's use.\nfunc Use() {}\n")
-			write(t, filepath.Join(dir, "sub", "LICENSE"), Text(t, m.SubLicense))
-			write(t, filepath.Join(dir, "lib.go"), program(dirOf(m.Path), nil, "")+"\n")
+		if module.SubLicense != "" {
+			write(
+				t,
+				filepath.Join(dir, "sub", "sub.go"),
+				"package sub\n\n// Use is the sub package's use.\nfunc Use() {}\n",
+			)
+			write(t, filepath.Join(dir, "sub", "LICENSE"), Text(t, module.SubLicense))
+			write(t, filepath.Join(dir, "lib.go"), program(dirOf(module.Path), nil, "")+"\n")
 		}
 	}
 
-	return ws
+	return workspace
 }
 
 func dirOf(path string) string {
@@ -147,48 +160,48 @@ func modulesOf(all []Module, paths []string) []Module {
 // (its root package, and its sub package when it has one), with a use()
 // that references each, plus trailer.
 func program(pkg string, imports []Module, trailer string) string {
-	var b strings.Builder
+	var text strings.Builder
 
-	b.WriteString("package " + pkg + "\n\n")
+	text.WriteString("package " + pkg + "\n\n")
 
 	if len(imports) > 0 {
-		b.WriteString("import (\n")
+		text.WriteString("import (\n")
 
 		for _, m := range imports {
-			b.WriteString("\t" + dirOf(m.Path) + " \"" + m.Path + "\"\n")
+			text.WriteString("\t" + dirOf(m.Path) + " \"" + m.Path + "\"\n")
 
 			if m.SubLicense != "" {
-				b.WriteString("\t" + dirOf(m.Path) + "sub \"" + m.Path + "/sub\"\n")
+				text.WriteString("\t" + dirOf(m.Path) + "sub \"" + m.Path + "/sub\"\n")
 			}
 		}
 
-		b.WriteString(")\n\n")
+		text.WriteString(")\n\n")
 	}
 
-	b.WriteString("func use() {\n")
+	text.WriteString("func use() {\n")
 
 	for _, m := range imports {
-		b.WriteString("\t" + dirOf(m.Path) + ".Use()\n")
+		text.WriteString("\t" + dirOf(m.Path) + ".Use()\n")
 
 		if m.SubLicense != "" {
-			b.WriteString("\t" + dirOf(m.Path) + "sub.Use()\n")
+			text.WriteString("\t" + dirOf(m.Path) + "sub.Use()\n")
 		}
 	}
 
-	b.WriteString("}\n\n// Use is the package's use.\nfunc Use() { use() }\n")
-	b.WriteString(trailer)
+	text.WriteString("}\n\n// Use is the package's use.\nfunc Use() { use() }\n")
+	text.WriteString(trailer)
 
-	return b.String()
+	return text.String()
 }
 
 func write(t *testing.T, path, content string) {
 	t.Helper()
 
-	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), dirMode); err != nil {
 		t.Fatal(err)
 	}
 
-	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+	if err := os.WriteFile(path, []byte(content), fileMode); err != nil {
 		t.Fatal(err)
 	}
 }

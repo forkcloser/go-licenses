@@ -3,6 +3,7 @@
 package licenses_test
 
 import (
+	"os"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -20,7 +21,12 @@ import (
 func standard() []testmods.Module {
 	return []testmods.Module{
 		{Path: "example.com/mit", Licenses: map[string]string{"LICENSE": "MIT"}, Imports: []string{"example.com/cc0"}},
-		{Path: "example.com/apache", Licenses: map[string]string{"LICENSE": "Apache-2.0"}, Notice: "Apache product notice\n", SubLicense: "MIT"},
+		{
+			Path:       "example.com/apache",
+			Licenses:   map[string]string{"LICENSE": "Apache-2.0"},
+			Notice:     "Apache product notice\n",
+			SubLicense: "MIT",
+		},
 		{Path: "example.com/gpl", Licenses: map[string]string{"COPYING": "GPL-3.0"}},
 		{Path: "example.com/mpl", Licenses: map[string]string{"LICENSE.md": "MPL-2.0"}},
 		{Path: "example.com/agpl", Licenses: map[string]string{"LICENSE": "AGPL-3.0"}},
@@ -70,6 +76,8 @@ func view(ws testmods.Workspace, libs []*licenses.Library) map[string]libView {
 // a module reached only through another is listed, and so is the
 // application's own package, with its own license file or none; the
 // standard library is not.
+//
+//nolint:paralleltest // Offline sets the Go environment with t.Setenv
 func TestContractLibrariesAreTheModulesLicenseFiles(t *testing.T) {
 	testmods.Offline(t)
 
@@ -93,15 +101,50 @@ func TestContractLibrariesAreTheModulesLicenseFiles(t *testing.T) {
 	got := view(ws, libs)
 
 	want := map[string]libView{
-		"example.com/mit":        {file: "mit/LICENSE", licenses: []string{"MIT"}, types: []string{"notice"}, packages: []string{"example.com/mit"}},
-		"example.com/apache":     {file: "apache/LICENSE", licenses: []string{"Apache-2.0"}, types: []string{"notice"}, packages: []string{"example.com/apache"}},
-		"example.com/apache/sub": {file: "apache/sub/LICENSE", licenses: []string{"MIT"}, types: []string{"notice"}, packages: []string{"example.com/apache/sub"}},
-		"example.com/gpl":        {file: "gpl/COPYING", licenses: []string{"GPL-3.0"}, types: []string{"restricted"}, packages: []string{"example.com/gpl"}},
-		"example.com/mpl":        {file: "mpl/LICENSE.md", licenses: []string{"MPL-2.0"}, types: []string{"reciprocal"}, packages: []string{"example.com/mpl"}},
-		"example.com/agpl":       {file: "agpl/LICENSE", licenses: []string{"AGPL-3.0"}, types: []string{"forbidden"}, packages: []string{"example.com/agpl"}},
-		"example.com/nolicense":  {file: "", packages: []string{"example.com/nolicense"}},
-		"example.com/cc0":        {file: "cc0/UNLICENSE", licenses: []string{"CC0-1.0"}, types: []string{"unencumbered"}, packages: []string{"example.com/cc0"}},
-		"example.com/app":        {file: "", packages: []string{"example.com/app"}},
+		"example.com/mit": {
+			file:     "mit/LICENSE",
+			licenses: []string{"MIT"},
+			types:    []string{"notice"},
+			packages: []string{"example.com/mit"},
+		},
+		"example.com/apache": {
+			file:     "apache/LICENSE",
+			licenses: []string{"Apache-2.0"},
+			types:    []string{"notice"},
+			packages: []string{"example.com/apache"},
+		},
+		"example.com/apache/sub": {
+			file:     "apache/sub/LICENSE",
+			licenses: []string{"MIT"},
+			types:    []string{"notice"},
+			packages: []string{"example.com/apache/sub"},
+		},
+		"example.com/gpl": {
+			file:     "gpl/COPYING",
+			licenses: []string{"GPL-3.0"},
+			types:    []string{"restricted"},
+			packages: []string{"example.com/gpl"},
+		},
+		"example.com/mpl": {
+			file:     "mpl/LICENSE.md",
+			licenses: []string{"MPL-2.0"},
+			types:    []string{"reciprocal"},
+			packages: []string{"example.com/mpl"},
+		},
+		"example.com/agpl": {
+			file:     "agpl/LICENSE",
+			licenses: []string{"AGPL-3.0"},
+			types:    []string{"forbidden"},
+			packages: []string{"example.com/agpl"},
+		},
+		"example.com/nolicense": {file: "", packages: []string{"example.com/nolicense"}},
+		"example.com/cc0": {
+			file:     "cc0/UNLICENSE",
+			licenses: []string{"CC0-1.0"},
+			types:    []string{"unencumbered"},
+			packages: []string{"example.com/cc0"},
+		},
+		"example.com/app": {file: "", packages: []string{"example.com/app"}},
 	}
 
 	for name, w := range want {
@@ -112,7 +155,8 @@ func TestContractLibrariesAreTheModulesLicenseFiles(t *testing.T) {
 			continue
 		}
 
-		if g.file != w.file || !slices.Equal(g.licenses, w.licenses) || !slices.Equal(g.types, w.types) || !slices.Equal(g.packages, w.packages) {
+		if g.file != w.file || !slices.Equal(g.licenses, w.licenses) || !slices.Equal(g.types, w.types) ||
+			!slices.Equal(g.packages, w.packages) {
 			t.Errorf("%s: %+v, want %+v", name, g, w)
 		}
 	}
@@ -136,6 +180,8 @@ func TestContractLibrariesAreTheModulesLicenseFiles(t *testing.T) {
 // TestContractIncludeTestsAndIgnore: a module imported by a test file
 // alone is listed only with includeTests; an ignored path prefix drops
 // the libraries under it and keeps what they import.
+//
+//nolint:paralleltest // Offline sets the Go environment with t.Setenv
 func TestContractIncludeTestsAndIgnore(t *testing.T) {
 	testmods.Offline(t)
 
@@ -225,6 +271,8 @@ func TestContractFindCandidatesWalksUpToTheRoot(t *testing.T) {
 // corpus text by its license, once, with the type the table gives it; a
 // file holding two texts names both; a README with no license text names
 // none; an empty path names none.
+//
+//nolint:paralleltest // Offline sets the Go environment with t.Setenv
 func TestContractIdentifyNamesTheCorpusText(t *testing.T) {
 	testmods.Offline(t)
 
@@ -239,10 +287,16 @@ func TestContractIdentifyNamesTheCorpusText(t *testing.T) {
 		content string
 		want    []licenses.License
 	}{
-		"MIT":    {testmods.Text(t, "MIT"), []licenses.License{{Name: "MIT", Type: licenses.Notice}}},
-		"GPL":    {testmods.Text(t, "GPL-3.0"), []licenses.License{{Name: "GPL-3.0", Type: licenses.Restricted}}},
-		"both":   {testmods.Text(t, "MIT") + "\n\n" + testmods.Text(t, "Apache-2.0"), []licenses.License{{Name: "MIT", Type: licenses.Notice}, {Name: "Apache-2.0", Type: licenses.Notice}}},
-		"twice":  {testmods.Text(t, "MIT") + "\n\n" + testmods.Text(t, "MIT"), []licenses.License{{Name: "MIT", Type: licenses.Notice}}},
+		"MIT": {testmods.Text(t, "MIT"), []licenses.License{{Name: "MIT", Type: licenses.Notice}}},
+		"GPL": {testmods.Text(t, "GPL-3.0"), []licenses.License{{Name: "GPL-3.0", Type: licenses.Restricted}}},
+		"both": {
+			testmods.Text(t, "MIT") + "\n\n" + testmods.Text(t, "Apache-2.0"),
+			[]licenses.License{{Name: "MIT", Type: licenses.Notice}, {Name: "Apache-2.0", Type: licenses.Notice}},
+		},
+		"twice": {
+			testmods.Text(t, "MIT") + "\n\n" + testmods.Text(t, "MIT"),
+			[]licenses.License{{Name: "MIT", Type: licenses.Notice}},
+		},
 		"readme": {"# a library\n\nSee the docs.\n", []licenses.License{}},
 	}
 
@@ -317,5 +371,65 @@ func TestContractTypesAndRestrictiveness(t *testing.T) {
 		if got := licenses.LicenseTypeRestrictiveness(c.types...); got != c.want {
 			t.Errorf("%v: %q, want %q", c.types, got, c.want)
 		}
+	}
+}
+
+// TestContractLibraryNameIsTheCommonAncestor: a library is named by the
+// directory its packages share: sibling packages sharing a prefix name
+// their parent, never the shorter package; one package names itself;
+// packages that share no directory name nothing.
+func TestContractLibraryNameIsTheCommonAncestor(t *testing.T) {
+	t.Parallel()
+
+	for _, c := range []struct {
+		packages []string
+		want     string
+	}{
+		{[]string{"m/pkg", "m/pkgextra"}, "m"},
+		{[]string{"m/pkg", "m/pkgextra", "m/pkg/sub"}, "m"},
+		{[]string{"m/pkg", "m/pkg/sub"}, "m/pkg"},
+		{[]string{"m"}, "m"},
+		{[]string{"m/a/x", "m/b/y"}, "m"},
+		{[]string{"m", "mextra"}, ""},
+	} {
+		if got := (&licenses.Library{Packages: c.packages}).Name(); got != c.want {
+			t.Errorf("%v: %q, want %q", c.packages, got, c.want)
+		}
+	}
+}
+
+// TestContractFindCandidatesStaysUnderTheRoot: a directory that is not
+// under the root, even one whose path starts with the root's, is refused,
+// and the walk up from a package never leaves the root.
+func TestContractFindCandidatesStaysUnderTheRoot(t *testing.T) {
+	t.Parallel()
+
+	base := t.TempDir()
+	root := filepath.Join(base, "root")
+	sibling := filepath.Join(base, "root2", "x")
+
+	for _, d := range []string{filepath.Join(root, "pkg"), sibling} {
+		if err := os.MkdirAll(d, 0o750); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	for _, f := range []string{filepath.Join(base, "root2", "LICENSE"), filepath.Join(base, "LICENSE")} {
+		if err := writeFile(f); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	if got, err := licenses.FindCandidates(sibling, root); err == nil {
+		t.Errorf("a sibling of the root sharing its prefix: %v and no error, want a refusal", got)
+	}
+
+	got, err := licenses.FindCandidates(filepath.Join(root, "pkg"), root)
+	if err != nil || len(got) != 0 {
+		t.Errorf(
+			"a package under a root with no license: %v, %v; want none (the LICENSE above the root is not the root's)",
+			got,
+			err,
+		)
 	}
 }

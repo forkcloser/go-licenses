@@ -4,10 +4,12 @@
 package main_test
 
 import (
+	"context"
 	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"sort"
 	"strings"
@@ -16,6 +18,9 @@ import (
 	"github.com/forkcloser/go-licenses/internal/testmods"
 )
 
+// contractBinary is the command built once for every case.
+//
+//nolint:gochecknoglobals // built in TestMain, read by every test
 var contractBinary string
 
 func TestMain(m *testing.M) {
@@ -24,23 +29,27 @@ func TestMain(m *testing.M) {
 		panic(err)
 	}
 
-	contractBinary = filepath.Join(dir, "go-licenses")
+	defer func() { _ = os.RemoveAll(dir) }()
 
-	build := exec.Command("go", "build", "-o", contractBinary, ".")
+	contractBinary = filepath.Join(dir, "go-licenses"+exeSuffix())
+
+	build := exec.CommandContext(context.Background(), "go", "build", "-o", contractBinary, ".")
 	if out, err := build.CombinedOutput(); err != nil {
 		panic(string(out))
 	}
 
-	code := m.Run()
-
-	_ = os.RemoveAll(dir)
-	os.Exit(code)
+	m.Run()
 }
 
 func deps() []testmods.Module {
 	return []testmods.Module{
 		{Path: "example.com/mit", Licenses: map[string]string{"LICENSE": "MIT"}, Imports: []string{"example.com/cc0"}},
-		{Path: "example.com/apache", Licenses: map[string]string{"LICENSE": "Apache-2.0"}, Notice: "Apache product notice\n", SubLicense: "MIT"},
+		{
+			Path:       "example.com/apache",
+			Licenses:   map[string]string{"LICENSE": "Apache-2.0"},
+			Notice:     "Apache product notice\n",
+			SubLicense: "MIT",
+		},
 		{Path: "example.com/gpl", Licenses: map[string]string{"COPYING": "GPL-3.0"}},
 		{Path: "example.com/mpl", Licenses: map[string]string{"LICENSE.md": "MPL-2.0"}},
 		{Path: "example.com/cc0", Licenses: map[string]string{"UNLICENSE": "CC0-1.0"}},
@@ -56,7 +65,7 @@ func badDeps() []testmods.Module {
 
 // workspace builds the modules with the application under MIT, enters the
 // application and sets the offline environment.
-func workspace(t *testing.T, mods []testmods.Module, testOnly []testmods.Module) testmods.Workspace {
+func workspace(t *testing.T, mods, testOnly []testmods.Module) testmods.Workspace {
 	t.Helper()
 
 	testmods.Offline(t)
@@ -73,16 +82,16 @@ func workspace(t *testing.T, mods []testmods.Module, testOnly []testmods.Module)
 
 // run runs the binary in the current directory: exit status, stdout,
 // stderr.
-func run(t *testing.T, args ...string) (int, string, string) {
+func run(t *testing.T, args ...string) (code int, stdout, stderr string) {
 	t.Helper()
 
 	cmd := exec.CommandContext(t.Context(), contractBinary, args...)
 	cmd.Env = os.Environ()
 
-	var stdout, stderr strings.Builder
+	var out, errOut strings.Builder
 
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
+	cmd.Stdout = &out
+	cmd.Stderr = &errOut
 
 	err := cmd.Run()
 
@@ -90,9 +99,9 @@ func run(t *testing.T, args ...string) (int, string, string) {
 
 	switch {
 	case err == nil:
-		return 0, stdout.String(), stderr.String()
+		return 0, out.String(), errOut.String()
 	case errors.As(err, &exit):
-		return exit.ExitCode(), stdout.String(), stderr.String()
+		return exit.ExitCode(), out.String(), errOut.String()
 	default:
 		t.Fatalf("running %s: %v", contractBinary, err)
 
@@ -119,6 +128,8 @@ func findings(stderr string) []string {
 // refuses a forbidden license and a library without one, each on a line
 // of its own on stderr, exit 1; a tree of notice, restricted, reciprocal
 // and unencumbered licenses passes with exit 0 and nothing printed.
+//
+//nolint:paralleltest // workspace enters the module with t.Chdir and sets the Go environment with t.Setenv
 func TestContractCheckDefaultsToForbiddenAndUnknown(t *testing.T) {
 	workspace(t, badDeps(), nil)
 
@@ -147,6 +158,8 @@ func TestContractCheckDefaultsToForbiddenAndUnknown(t *testing.T) {
 // type, the forbidden one then passes; a library without a license file
 // fails whatever the flags; --allowed_licenses flags every license not
 // named; the two flags together are refused.
+//
+//nolint:paralleltest // workspace enters the module with t.Chdir and sets the Go environment with t.Setenv
 func TestContractCheckDisallowedTypes(t *testing.T) {
 	workspace(t, badDeps(), nil)
 
@@ -178,20 +191,46 @@ func TestContractCheckDisallowedTypes(t *testing.T) {
 	if code != 1 || !strings.Contains(stderr, "can't be used at the same time") {
 		t.Errorf("both flags: exit %d stderr %q", code, stderr)
 	}
+
+	// A type no class has is a usage error, not a fall back to the defaults.
+	code, _, stderr = run(t, "check", ".", "--disallowed_types=typo")
+	if code != 1 || !strings.Contains(stderr, "unknown license type 'typo'") || len(findings(stderr)) != 0 {
+		t.Errorf("--disallowed_types=typo: exit %d stderr %q", code, stderr)
+	}
 }
 
 // TestContractCheckIgnoreAndIncludeTests: --ignore drops libraries under
 // a path prefix from the check, what they import still checked;
 // --include_tests brings in a module a test file alone imports.
+//
+//nolint:paralleltest // workspace enters the module with t.Chdir and sets the Go environment with t.Setenv
 func TestContractCheckIgnoreAndIncludeTests(t *testing.T) {
 	testOnly := testmods.Module{Path: "example.com/testagpl", Licenses: map[string]string{"LICENSE": "AGPL-3.0"}}
 	workspace(t, badDeps(), []testmods.Module{testOnly})
 
-	if code, _, stderr := run(t, "check", ".", "--ignore", "example.com/agpl", "--ignore", "example.com/nolicense"); code != 0 || stderr != "" {
+	if code, _, stderr := run(
+		t,
+		"check",
+		".",
+		"--ignore",
+		"example.com/agpl",
+		"--ignore",
+		"example.com/nolicense",
+	); code != 0 ||
+		stderr != "" {
 		t.Errorf("--ignore: exit %d stderr %q", code, stderr)
 	}
 
-	code, _, stderr := run(t, "check", ".", "--ignore", "example.com/agpl", "--ignore", "example.com/nolicense", "--include_tests")
+	code, _, stderr := run(
+		t,
+		"check",
+		".",
+		"--ignore",
+		"example.com/agpl",
+		"--ignore",
+		"example.com/nolicense",
+		"--include_tests",
+	)
 	if code != 1 || !strings.Contains(stderr, "found for library 'example.com/testagpl'") {
 		t.Errorf("--include_tests: exit %d stderr %q", code, stderr)
 	}
@@ -203,6 +242,8 @@ func TestContractCheckIgnoreAndIncludeTests(t *testing.T) {
 // it when the module has one; the whole package directory for a
 // restricted or reciprocal one; the application's own license too. A
 // save path that exists is refused; --force replaces it.
+//
+//nolint:paralleltest // workspace enters the module with t.Chdir and sets the Go environment with t.Setenv
 func TestContractSaveLaysOutByRestrictiveness(t *testing.T) {
 	ws := workspace(t, deps(), nil)
 	out := filepath.Join(ws.Root, "out")
@@ -249,7 +290,13 @@ func TestContractSaveLaysOutByRestrictiveness(t *testing.T) {
 		t.Errorf("saved:\n%s\nwant:\n%s", strings.Join(saved, "\n"), strings.Join(want, "\n"))
 	}
 
-	if code, _, stderr := run(t, "save", ".", "--save_path="+out); code != 1 || !strings.Contains(stderr, "already exists") {
+	if code, _, stderr := run(
+		t,
+		"save",
+		".",
+		"--save_path="+out,
+	); code != 1 ||
+		!strings.Contains(stderr, "already exists") {
 		t.Errorf("an existing save path: exit %d stderr %q", code, stderr)
 	}
 
@@ -269,18 +316,43 @@ func TestContractSaveLaysOutByRestrictiveness(t *testing.T) {
 
 // TestContractSaveRefusesWhatItCannotRedistribute: a forbidden license or
 // a library without one fails the save, exit 1, the error naming them.
+//
+//nolint:paralleltest // workspace enters the module with t.Chdir and sets the Go environment with t.Setenv
 func TestContractSaveRefusesWhatItCannotRedistribute(t *testing.T) {
 	ws := workspace(t, badDeps(), nil)
 	out := filepath.Join(ws.Root, "out")
 
 	code, _, stderr := run(t, "save", ".", "--save_path="+out)
-	if code != 1 || !strings.Contains(stderr, "incompatible/unknown license") || !strings.Contains(stderr, "example.com/agpl") || !strings.Contains(stderr, "example.com/nolicense") {
+	if code != 1 || !strings.Contains(stderr, "incompatible/unknown license") ||
+		!strings.Contains(stderr, "example.com/agpl") ||
+		!strings.Contains(stderr, "example.com/nolicense") {
 		t.Errorf("exit %d stderr %q", code, stderr)
+	}
+
+	// --force judges before it removes: a previous save survives a run
+	// that fails.
+	if err := os.MkdirAll(out, 0o750); err != nil {
+		t.Fatal(err)
+	}
+
+	previous := filepath.Join(out, "previous")
+	if err := os.WriteFile(previous, []byte("kept"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	if code, _, _ := run(t, "save", ".", "--save_path="+out, "--force"); code != 1 {
+		t.Errorf("--force on a tree that cannot be saved: exit %d, want 1", code)
+	}
+
+	if _, err := os.Stat(previous); err != nil {
+		t.Errorf("--force removed the previous save before failing: %v", err)
 	}
 }
 
 // TestContractUsage: no command is a usage error, exit 1; --help exits 0
 // and names both commands.
+//
+//nolint:paralleltest // workspace enters the module with t.Chdir and sets the Go environment with t.Setenv
 func TestContractUsage(t *testing.T) {
 	workspace(t, deps(), nil)
 
@@ -292,4 +364,13 @@ func TestContractUsage(t *testing.T) {
 	if code != 0 || !strings.Contains(stdout, "check") || !strings.Contains(stdout, "save") {
 		t.Errorf("--help: exit %d stdout %q", code, stdout)
 	}
+}
+
+// exeSuffix is what the OS needs appended to run a binary built to a bare name.
+func exeSuffix() string {
+	if runtime.GOOS == "windows" {
+		return ".exe"
+	}
+
+	return ""
 }
