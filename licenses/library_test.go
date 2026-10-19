@@ -209,6 +209,28 @@ func TestLibraryName(t *testing.T) {
 			},
 			wantName: "github.com/google/trillian/vendor/coreos/etcd",
 		},
+		// A package whose import path is a prefix of a sibling's: the
+		// ancestor is the directory before them, not the shorter path.
+		{
+			desc:     "Sibling packages sharing a name prefix",
+			lib:      &Library{Packages: []string{"m/pkg", "m/pkgextra"}},
+			wantName: "m",
+		},
+		{
+			desc:     "Sibling packages sharing a name prefix, with a sub-package",
+			lib:      &Library{Packages: []string{"m/pkg", "m/pkg/sub", "m/pkgextra"}},
+			wantName: "m",
+		},
+		{
+			desc:     "A package and its sub-package",
+			lib:      &Library{Packages: []string{"m/pkg", "m/pkg/sub"}},
+			wantName: "m/pkg",
+		},
+		{
+			desc:     "Top-level names sharing a prefix",
+			lib:      &Library{Packages: []string{"m", "mextra"}},
+			wantName: "",
+		},
 	} {
 		t.Run(test.desc, func(t *testing.T) {
 			if got, want := test.lib.Name(), test.wantName; got != want {

@@ -150,3 +150,39 @@ func TestFindCandidates(t *testing.T) {
 		})
 	}
 }
+
+// TestFindCandidatesBound: the search stays in rootDir as a path, not as a
+// string prefix. A directory in a sibling whose name starts with the root's
+// (m@v1.2.0-rc1 beside m@v1.2.0 in the module cache) is outside it and
+// refused; a directory in the root finds the root's license and not one
+// above it.
+func TestFindCandidatesBound(t *testing.T) {
+	base := t.TempDir()
+
+	for _, dir := range []string{"root/x", "root2/x"} {
+		if err := os.MkdirAll(filepath.Join(base, dir), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	for _, file := range []string{"LICENSE", "root/LICENSE", "root2/LICENSE"} {
+		if err := os.WriteFile(filepath.Join(base, file), []byte("license"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	root := filepath.Join(base, "root")
+
+	if got, err := FindCandidates(filepath.Join(base, "root2", "x"), root); err == nil {
+		t.Errorf("FindCandidates of a sibling sharing the root's name prefix = %q, want an error", got)
+	}
+
+	got, err := FindCandidates(filepath.Join(root, "x"), root)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if want := []string{filepath.Join(root, "LICENSE")}; !cmp.Equal(got, want) {
+		t.Errorf("FindCandidates in the root = %q, want %q (the root's license, not the one above it)", got, want)
+	}
+}
