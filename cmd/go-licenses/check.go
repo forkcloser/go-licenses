@@ -50,7 +50,11 @@ func (c *checkCmd) Run(ctx context.Context, root *cli) error {
 	var disallowedLicenseTypes []licenses.Type
 
 	allowedLicenseNames := getAllowedLicenseNames(c.AllowedLicenses)
-	disallowedLicenseTypes = getDisallowedLicenseTypes(c.DisallowedTypes)
+
+	disallowedLicenseTypes, err := getDisallowedLicenseTypes(c.DisallowedTypes)
+	if err != nil {
+		return err
+	}
 
 	hasLicenseNames := len(allowedLicenseNames) > 0
 	hasLicenseType := len(disallowedLicenseTypes) > 0
@@ -115,9 +119,17 @@ func (c *checkCmd) Run(ctx context.Context, root *cli) error {
 	return nil
 }
 
-func getDisallowedLicenseTypes(disallowedTypes []string) []licenses.Type {
+// errUnknownLicenseType is a --disallowed_types name that is no type: a
+// usage error, where it was a message followed by a check with the default
+// set.
+var errUnknownLicenseType = errors.New("unknown license type")
+
+// allowedTypeNames are the --disallowed_types names, for the error.
+const allowedTypeNames = "forbidden, notice, permissive, reciprocal, restricted, unencumbered, unknown"
+
+func getDisallowedLicenseTypes(disallowedTypes []string) ([]licenses.Type, error) {
 	if len(disallowedTypes) == 0 {
-		return []licenses.Type{}
+		return []licenses.Type{}, nil
 	}
 
 	excludedLicenseTypes := make([]licenses.Type, 0)
@@ -139,16 +151,11 @@ func getDisallowedLicenseTypes(disallowedTypes []string) []licenses.Type {
 		case "unknown":
 			excludedLicenseTypes = append(excludedLicenseTypes, licenses.Unknown)
 		default:
-			fmt.Fprintf(
-				os.Stderr,
-				"Unknown license type '%s' provided.\n"+
-					"Allowed types: forbidden, notice, permissive, reciprocal, restricted, unencumbered, unknown\n",
-				v,
-			)
+			return nil, fmt.Errorf("%w '%s' provided; allowed types: %s", errUnknownLicenseType, v, allowedTypeNames)
 		}
 	}
 
-	return excludedLicenseTypes
+	return excludedLicenseTypes, nil
 }
 
 func isDisallowedLicenseType(licenseType licenses.Type, excludedLicenseTypes []licenses.Type) bool {

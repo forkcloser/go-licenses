@@ -410,6 +410,14 @@ func commonAncestor(paths []string) string {
 		}
 	}
 
+	// The shorter path is a prefix of the longer: its ancestor when the
+	// longer goes on with a separator (m/pkg over m/pkg/sub), else a sibling
+	// with a longer name (m/pkg beside m/pkgextra), whose common ancestor is
+	// the directory before them.
+	if len(max) > len(min) && max[len(min)] != '/' {
+		return min[:lastSlashIndex]
+	}
+
 	return min
 }
 

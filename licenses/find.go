@@ -40,18 +40,30 @@ func FindCandidates(dir, rootDir string) ([]string, error) {
 		return nil, err
 	}
 
-	if !strings.HasPrefix(dir, rootDir) {
+	if !within(dir, rootDir) {
 		return nil, fmt.Errorf("licenses.Find: rootDir %s should contain dir %s", rootDir, dir)
 	}
 
 	return findAllUpwards(dir, licenseRegexp, rootDir)
 }
 
+// within reports dir being root or a directory under it, as paths: a
+// sibling whose name starts with root's (m@v1.2.0-rc1 beside m@v1.2.0 in
+// the module cache) is not within it, whatever the strings share.
+func within(dir, root string) bool {
+	rel, err := filepath.Rel(root, dir)
+	if err != nil {
+		return false
+	}
+
+	return rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
+}
+
 func findAllUpwards(dir string, r *regexp.Regexp, stopAt string) ([]string, error) {
 	var foundPaths []string
 
 	// Stop once we go out of the stopAt dir.
-	for strings.HasPrefix(dir, stopAt) {
+	for within(dir, stopAt) {
 		dirContents, err := os.ReadDir(dir)
 		if err != nil {
 			return nil, err

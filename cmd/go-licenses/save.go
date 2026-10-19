@@ -47,12 +47,6 @@ func (*saveCmd) Help() string {
 func (c *saveCmd) Run(ctx context.Context, root *cli) error {
 	savePath := c.SavePath
 
-	if c.Force {
-		if err := os.RemoveAll(savePath); err != nil {
-			return err
-		}
-	}
-
 	classifier, err := licenses.NewClassifier()
 	if err != nil {
 		return err
@@ -65,6 +59,24 @@ func (c *saveCmd) Run(ctx context.Context, root *cli) error {
 
 	logWarnings(ctx, warnings)
 
+	return save(libs, savePath, c.Force)
+}
+
+// save writes the libraries' licenses, or sources, under savePath. Every
+// library is judged before anything is removed or written, so a run that
+// fails on a license leaves the previous save as it was; only then is the
+// previous save removed when forced, and refused when not.
+func save(libs []*licenses.Library, savePath string, force bool) error {
+	if libsWithBadLicenses := badLicenses(libs); len(libsWithBadLicenses) > 0 {
+		return fmt.Errorf("one or more libraries have an incompatible/unknown license: %q", libsWithBadLicenses)
+	}
+
+	if force {
+		if err := os.RemoveAll(savePath); err != nil {
+			return err
+		}
+	}
+
 	// Check that the save path doesn't exist, otherwise it'd end up with a mix of
 	// existing files and the output of this command.
 	if _, err := os.Stat(savePath); err == nil {
@@ -73,19 +85,10 @@ func (c *saveCmd) Run(ctx context.Context, root *cli) error {
 		return err
 	}
 
-	libsWithBadLicenses := make(map[licenses.Type][]*licenses.Library)
-
 	for _, lib := range libs {
 		libSaveDir := filepath.Join(savePath, unvendor(lib.Name()))
 
-		licenseTypes := make([]licenses.Type, 0, len(lib.Licenses))
-		for _, license := range lib.Licenses {
-			licenseTypes = append(licenseTypes, license.Type)
-		}
-
-		restrictiveness := licenses.LicenseTypeRestrictiveness(licenseTypes...)
-
-		switch restrictiveness {
+		switch restrictiveness(lib) {
 		case licenses.RestrictionsShareCode:
 			// Copy the entire source directory for the library.
 			libDir := filepath.Dir(lib.LicenseFile)
@@ -97,31 +100,54 @@ func (c *saveCmd) Run(ctx context.Context, root *cli) error {
 			if err := copyNotices(lib.LicenseFile, libSaveDir); err != nil {
 				return err
 			}
-		default:
-			if len(lib.Licenses) == 0 {
-				// If we can't identify the license, we can't fulfill its requirements.
-				libsWithBadLicenses[licenses.Unknown] = append(libsWithBadLicenses[licenses.Unknown], lib)
-			} else {
-				// Register all bad licenses, so we can print them out at the end.
-			FindAllBadLicences:
-				for _, license := range lib.Licenses {
-					switch license.Type {
-					case licenses.Notice, licenses.Permissive, licenses.Unencumbered, licenses.Restricted, licenses.Reciprocal:
-						// these are allowed
-						continue FindAllBadLicences
-					}
-
-					libsWithBadLicenses[license.Type] = append(libsWithBadLicenses[license.Type], lib)
-				}
-			}
 		}
 	}
 
-	if len(libsWithBadLicenses) > 0 {
-		return fmt.Errorf("one or more libraries have an incompatible/unknown license: %q", libsWithBadLicenses)
+	return nil
+}
+
+// restrictiveness is what a library's licenses together ask of a save.
+func restrictiveness(lib *licenses.Library) licenses.LicenseRestrictiveness {
+	licenseTypes := make([]licenses.Type, 0, len(lib.Licenses))
+	for _, license := range lib.Licenses {
+		licenseTypes = append(licenseTypes, license.Type)
 	}
 
-	return nil
+	return licenses.LicenseTypeRestrictiveness(licenseTypes...)
+}
+
+// badLicenses is every library a save cannot fulfil, by license type: one
+// with no license identified (Unknown), and one whose licenses include a
+// type that is neither shared as code nor as a notice.
+func badLicenses(libs []*licenses.Library) map[licenses.Type][]*licenses.Library {
+	libsWithBadLicenses := make(map[licenses.Type][]*licenses.Library)
+
+	for _, lib := range libs {
+		switch restrictiveness(lib) {
+		case licenses.RestrictionsShareCode, licenses.RestrictionsShareLicense:
+			continue
+		}
+
+		if len(lib.Licenses) == 0 {
+			// If we can't identify the license, we can't fulfill its requirements.
+			libsWithBadLicenses[licenses.Unknown] = append(libsWithBadLicenses[licenses.Unknown], lib)
+
+			continue
+		}
+
+		// Register all bad licenses, so we can print them out at the end.
+		for _, license := range lib.Licenses {
+			switch license.Type {
+			case licenses.Notice, licenses.Permissive, licenses.Unencumbered, licenses.Restricted, licenses.Reciprocal:
+				// these are allowed
+				continue
+			}
+
+			libsWithBadLicenses[license.Type] = append(libsWithBadLicenses[license.Type], lib)
+		}
+	}
+
+	return libsWithBadLicenses
 }
 
 func copySrc(src, dest string) error {
