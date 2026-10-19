@@ -5,7 +5,7 @@ go 1.26.0
 require (
 	github.com/alecthomas/kong v1.16.1
 	github.com/google/go-cmp v0.7.0
-	github.com/mycophonic/primordium v0.15.0
+	github.com/mycophonic/primordium v0.15.1
 	github.com/otiai10/copy v1.14.1
 	github.com/sergi/go-diff v1.4.0
 	golang.org/x/sync v0.24.0
