@@ -95,10 +95,11 @@ func run(ctx context.Context, args []string) error {
 	case errors.Is(err, errDisallowed):
 		return errDisallowed
 	default:
-		// A failure is a message to the user, as the findings are, not a log record.
+		// A failure is a message to the user, as the findings are, not a log
+		// record; the exit wraps the status shutdown.Run exits with silently.
 		fmt.Fprintln(os.Stderr, "go-licenses:", err)
 
-		return shutdown.ExitError(1)
+		return fmt.Errorf("go-licenses: %w", shutdown.ExitError(1))
 	}
 }
 
