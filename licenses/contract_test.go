@@ -76,8 +76,6 @@ func view(ws testmods.Workspace, libs []*licenses.Library) map[string]libView {
 // a module reached only through another is listed, and so is the
 // application's own package, with its own license file or none; the
 // standard library is not.
-//
-//nolint:paralleltest // Offline sets the Go environment with t.Setenv
 func TestContractLibrariesAreTheModulesLicenseFiles(t *testing.T) {
 	testmods.Offline(t)
 
@@ -180,8 +178,6 @@ func TestContractLibrariesAreTheModulesLicenseFiles(t *testing.T) {
 // TestContractIncludeTestsAndIgnore: a module imported by a test file
 // alone is listed only with includeTests; an ignored path prefix drops
 // the libraries under it and keeps what they import.
-//
-//nolint:paralleltest // Offline sets the Go environment with t.Setenv
 func TestContractIncludeTestsAndIgnore(t *testing.T) {
 	testmods.Offline(t)
 
