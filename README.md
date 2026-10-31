@@ -172,3 +172,16 @@ it is not possible to check the non-Go code for further dependencies, which may
 conceal additional license requirements. You should investigate this code to
 determine whether it has dependencies and take action to comply with their
 license terms.
+
+## Running the tests
+
+`just test` runs them. What they need:
+
+- Network access: the command's tests run `go mod download` in the modules
+  under `cmd/go-licenses/testdata` before running the command on them. The
+  library's contract tests build their modules offline.
+- Nothing else from the environment. The command's goldens are linux/amd64's,
+  and the test sets `GOOS=linux GOARCH=amd64` itself, since the packages a
+  module loads differ by platform; `TestLibrariesVendored` sets
+  `GOFLAGS=-mod=vendor` for its vendored fixture, so a `GOFLAGS` in your
+  shell does not reach it.
