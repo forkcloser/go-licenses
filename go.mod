@@ -8,7 +8,7 @@ require (
 	github.com/mycophonic/primordium v0.15.1
 	github.com/otiai10/copy v1.14.1
 	github.com/sergi/go-diff v1.4.0
-	golang.org/x/sync v0.24.0
+	golang.org/x/sync v0.25.0
 	golang.org/x/text v0.43.0
 	golang.org/x/tools v0.52.0
 )
