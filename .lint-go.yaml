@@ -104,8 +104,7 @@ golangci:
         # Counts are the measurement at enrolment, per file and linter: 518 in 24 files.
         # ---------------------------------------------------------------------------
         - path: ^cmd/go-licenses/check\.go$
-          linters: # 6 findings
-            - wrapcheck # 2
+          linters: # 4 findings
             - err113 # 1
             - gocognit # 1
             - revive # 1
@@ -116,8 +115,7 @@ golangci:
             - paralleltest # 2
             - gochecknoglobals # 1
         - path: ^cmd/go-licenses/save\.go$
-          linters: # 18 findings
-            - wrapcheck # 8
+          linters: # 10 findings
             - revive # 3
             - err113 # 2
             - exhaustive # 2
@@ -154,9 +152,8 @@ golangci:
             - varnamelen # 10
             - gocognit # 3
         - path: ^licenses/classifier\.go$
-          linters: # 8 findings
+          linters: # 5 findings
             - revive # 3
-            - wrapcheck # 3
             - gosec # 1
             - iface # 1
         - path: ^licenses/classifier_test\.go$
@@ -165,8 +162,7 @@ golangci:
             - err113 # 1
             - testpackage # 1
         - path: ^licenses/find\.go$
-          linters: # 7 findings
-            - wrapcheck # 3
+          linters: # 4 findings
             - varnamelen # 2
             - err113 # 1
             - gocritic # 1
@@ -176,9 +172,8 @@ golangci:
             - paralleltest # 2
             - testpackage # 1
         - path: ^licenses/library\.go$
-          linters: # 8 findings
+          linters: # 6 findings
             - revive # 3
-            - wrapcheck # 2
             - err113 # 1
             - gocognit # 1
             - varnamelen # 1

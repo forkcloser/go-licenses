@@ -32,12 +32,12 @@ var licenseRegexp = regexp.MustCompile(`^(?i)((UN)?LICEN(S|C)E|COPYING|README|NO
 func FindCandidates(dir, rootDir string) ([]string, error) {
 	dir, err := filepath.Abs(dir)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("making %s absolute: %w", dir, err)
 	}
 
 	rootDir, err = filepath.Abs(rootDir)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("making %s absolute: %w", rootDir, err)
 	}
 
 	if !within(dir, rootDir) {
@@ -66,7 +66,7 @@ func findAllUpwards(dir string, r *regexp.Regexp, stopAt string) ([]string, erro
 	for within(dir, stopAt) {
 		dirContents, err := os.ReadDir(dir)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("looking for licenses: %w", err)
 		}
 
 		for _, f := range dirContents {
