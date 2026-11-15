@@ -97,7 +97,7 @@ func Libraries(
 
 	rootPkgs, err := packages.Load(cfg, importPaths...)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("loading %s: %w", strings.Join(importPaths, " "), err)
 	}
 
 	vendoredSearch := []*Module{}
@@ -306,7 +306,7 @@ func Libraries(
 	}
 
 	if err := group.Wait(); err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("identifying the licenses: %w", err)
 	}
 
 	foundLicenses := map[string][]License{}

@@ -49,12 +49,12 @@ func (c *saveCmd) Run(ctx context.Context, root *cli) error {
 
 	classifier, err := licenses.NewClassifier()
 	if err != nil {
-		return err
+		return fmt.Errorf("loading the license classifier: %w", err)
 	}
 
 	libs, warnings, err := licenses.Libraries(ctx, classifier, root.IncludeTests, root.Ignore, c.Packages...)
 	if err != nil {
-		return err
+		return fmt.Errorf("finding the libraries of %s: %w", strings.Join(c.Packages, " "), err)
 	}
 
 	logWarnings(ctx, warnings)
@@ -73,7 +73,7 @@ func save(libs []*licenses.Library, savePath string, force bool) error {
 
 	if force {
 		if err := os.RemoveAll(savePath); err != nil {
-			return err
+			return fmt.Errorf("removing %s: %w", savePath, err)
 		}
 	}
 
@@ -82,7 +82,7 @@ func save(libs []*licenses.Library, savePath string, force bool) error {
 	if _, err := os.Stat(savePath); err == nil {
 		return fmt.Errorf("%s already exists", savePath)
 	} else if !os.IsNotExist(err) {
-		return err
+		return fmt.Errorf("looking at %s: %w", savePath, err)
 	}
 
 	for _, lib := range libs {
@@ -160,7 +160,7 @@ func copySrc(src, dest string) error {
 		AddPermission: 0o600,
 	}
 	if err := copy.Copy(src, dest, opt); err != nil {
-		return err
+		return fmt.Errorf("copying %s to %s: %w", src, dest, err)
 	}
 
 	return nil
@@ -168,20 +168,20 @@ func copySrc(src, dest string) error {
 
 func copyNotices(licensePath, dest string) error {
 	if err := copy.Copy(licensePath, filepath.Join(dest, filepath.Base(licensePath))); err != nil {
-		return err
+		return fmt.Errorf("copying %s to %s: %w", licensePath, dest, err)
 	}
 
 	src := filepath.Dir(licensePath)
 
 	files, err := os.ReadDir(src)
 	if err != nil {
-		return err
+		return fmt.Errorf("looking for notices beside %s: %w", licensePath, err)
 	}
 
 	for _, f := range files {
 		if fName := f.Name(); !f.IsDir() && noticeRegexp.MatchString(fName) {
 			if err := copy.Copy(filepath.Join(src, fName), filepath.Join(dest, fName)); err != nil {
-				return err
+				return fmt.Errorf("copying %s to %s: %w", filepath.Join(src, fName), dest, err)
 			}
 		}
 	}

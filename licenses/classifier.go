@@ -16,6 +16,7 @@ package licenses
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 
 	"github.com/forkcloser/go-licenses/internal/third_party/licenseclassifier"
@@ -35,7 +36,7 @@ type googleClassifier struct {
 func NewClassifier() (Classifier, error) {
 	c, err := assets.DefaultClassifier()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("loading the embedded licenses: %w", err)
 	}
 
 	return &googleClassifier{classifier: c}, nil
@@ -55,12 +56,12 @@ func (c *googleClassifier) Identify(licensePath string) ([]License, error) {
 
 	content, err := os.ReadFile(licensePath)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("reading the license: %w", err)
 	}
 
 	matches, err := c.classifier.MatchFrom(bytes.NewReader(content))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("classifying %s: %w", licensePath, err)
 	}
 
 	foundLicenseNames := map[string]struct{}{}

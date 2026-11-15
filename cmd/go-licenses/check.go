@@ -71,12 +71,12 @@ func (c *checkCmd) Run(ctx context.Context, root *cli) error {
 
 	classifier, err := licenses.NewClassifier()
 	if err != nil {
-		return err
+		return fmt.Errorf("loading the license classifier: %w", err)
 	}
 
 	libs, warnings, err := licenses.Libraries(ctx, classifier, root.IncludeTests, root.Ignore, c.Packages...)
 	if err != nil {
-		return err
+		return fmt.Errorf("finding the libraries of %s: %w", strings.Join(c.Packages, " "), err)
 	}
 
 	logWarnings(ctx, warnings)
@@ -113,6 +113,7 @@ func (c *checkCmd) Run(ctx context.Context, root *cli) error {
 	}
 
 	if found {
+		//nolint:wrapcheck // the command's own exit status, which main looks for as it is
 		return errDisallowed
 	}
 
