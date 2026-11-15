@@ -84,7 +84,7 @@ func TestCheckCommandE2E(t *testing.T) {
 		t.Run(tt.workdir, func(t *testing.T) {
 			t.Chdir(filepath.Join(originalWorkDir, fixtureRoot, tt.workdir))
 
-			cmd := exec.Command("go", "mod", "download")
+			cmd := exec.CommandContext(t.Context(), "go", "mod", "download")
 
 			log, err := cmd.CombinedOutput()
 			if err != nil {
@@ -93,7 +93,7 @@ func TestCheckCommandE2E(t *testing.T) {
 			// Extra flags to disable logging.
 			// Logs are not deterministic for this golden test.
 			args := append([]string{"check", "."}, tt.args...)
-			cmd = exec.Command(goLicensesPath, args...)
+			cmd = exec.CommandContext(t.Context(), goLicensesPath, args...)
 			cmd.Env = goldenPlatform()
 			// Capture stderr to buffer.
 			var stderr bytes.Buffer
@@ -162,7 +162,7 @@ func TestSaveCommandE2E(t *testing.T) {
 	goLicensesPath := buildGoLicenses(t)
 	module := filepath.Join(fixtureRoot, "testdata", "modules", "hello01")
 
-	download := exec.Command("go", "mod", "download")
+	download := exec.CommandContext(t.Context(), "go", "mod", "download")
 	download.Dir = module
 
 	if log, err := download.CombinedOutput(); err != nil {
@@ -172,7 +172,7 @@ func TestSaveCommandE2E(t *testing.T) {
 	save := func(t *testing.T, savePath string) (string, error) {
 		t.Helper()
 
-		cmd := exec.Command(goLicensesPath, "save", ".", "--save_path="+savePath)
+		cmd := exec.CommandContext(t.Context(), goLicensesPath, "save", ".", "--save_path="+savePath)
 		cmd.Dir = module
 		cmd.Env = goldenPlatform()
 
@@ -226,7 +226,7 @@ func buildGoLicenses(t *testing.T) string {
 
 	goLicensesPath := filepath.Join(t.TempDir(), goLicensesBinary())
 
-	if _, err := exec.Command("go", "build", "-o", goLicensesPath).Output(); err != nil {
+	if _, err := exec.CommandContext(t.Context(), "go", "build", "-o", goLicensesPath).Output(); err != nil {
 		t.Fatal(err)
 	}
 

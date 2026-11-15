@@ -109,8 +109,7 @@ golangci:
             - revive # 1
             - varnamelen # 1
         - path: ^cmd/go-licenses/e2e_test\.go$
-          linters: # 6 findings
-            - noctx # 3
+          linters: # 3 findings
             - paralleltest # 2
             - gochecknoglobals # 1
         - path: ^cmd/go-licenses/save\.go$
