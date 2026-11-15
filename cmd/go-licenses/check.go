@@ -60,6 +60,7 @@ func (c *checkCmd) Run(ctx context.Context, root *cli) error {
 	hasLicenseType := len(disallowedLicenseTypes) > 0
 
 	if hasLicenseNames && hasLicenseType {
+		//nolint:err113 // a usage error: it is printed, and nothing matches it
 		return errors.New("allowed_licenses && disallowed_types can't be used at the same time")
 	}
 

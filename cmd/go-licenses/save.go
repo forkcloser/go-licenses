@@ -68,6 +68,7 @@ func (c *saveCmd) Run(ctx context.Context, root *cli) error {
 // previous save removed when forced, and refused when not.
 func save(libs []*licenses.Library, savePath string, force bool) error {
 	if libsWithBadLicenses := badLicenses(libs); len(libsWithBadLicenses) > 0 {
+		//nolint:err113 // the run's verdict, with the libraries it names: it is printed, and nothing matches it
 		return fmt.Errorf("one or more libraries have an incompatible/unknown license: %q", libsWithBadLicenses)
 	}
 
@@ -80,6 +81,7 @@ func save(libs []*licenses.Library, savePath string, force bool) error {
 	// Check that the save path doesn't exist, otherwise it'd end up with a mix of
 	// existing files and the output of this command.
 	if _, err := os.Stat(savePath); err == nil {
+		//nolint:err113 // a refusal that names the path: it is printed, and nothing matches it
 		return fmt.Errorf("%s already exists", savePath)
 	} else if !os.IsNotExist(err) {
 		return fmt.Errorf("looking at %s: %w", savePath, err)

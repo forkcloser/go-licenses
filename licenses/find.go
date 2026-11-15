@@ -41,6 +41,7 @@ func FindCandidates(dir, rootDir string) ([]string, error) {
 	}
 
 	if !within(dir, rootDir) {
+		//nolint:err113 // the caller's two arguments do not go together: the message says which, and no caller can act on more
 		return nil, fmt.Errorf("licenses.Find: rootDir %s should contain dir %s", rootDir, dir)
 	}
 

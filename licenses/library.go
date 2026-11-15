@@ -184,6 +184,7 @@ func Libraries(
 			}
 
 			if p.Module == nil {
+				//nolint:err113 // one of the load's errors, joined for the reader: the message names the package
 				loadErrs = append(loadErrs, fmt.Errorf(
 					"package %s does not have module info: projects outside Go modules are not supported",
 					p.PkgPath,
