@@ -49,6 +49,7 @@ func (c classifierStub) Identify(licensePath string) ([]License, error) {
 		return nil, c.errors[relPath]
 	}
 
+	//nolint:err113 // the stub's own failure, for whoever reads the test's output
 	return nil, fmt.Errorf("classifierStub has no programmed response for %q", relPath)
 }
 
