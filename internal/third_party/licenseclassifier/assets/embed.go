@@ -27,7 +27,10 @@ import (
 //go:embed */*/*
 var licenseFS embed.FS
 
-// threshold is the confidence a match needs to be reported.
+// threshold is asked twice of a text before a license is reported: of the
+// share of the license's distinct words the text holds, then of the match's
+// confidence. The first gives way first: a text can score above threshold
+// and still be named nothing.
 const threshold = 0.8
 
 // DefaultClassifier returns a classifier loaded with the contents of the

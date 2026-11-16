@@ -199,6 +199,39 @@ func TestContractCheckDisallowedTypes(t *testing.T) {
 	}
 }
 
+// TestContractCheckAtTheClassifiersLimit: a library whose license file is
+// the MIT text short of its last 27 words is MIT to `check`; a word
+// shorter, the file names no license, and the library is refused as one
+// without a license, whatever the flags.
+//
+//nolint:paralleltest // workspace enters the module with t.Chdir and sets the Go environment with t.Setenv
+func TestContractCheckAtTheClassifiersLimit(t *testing.T) {
+	short := func(cut int) []testmods.Module {
+		return []testmods.Module{{
+			Path:     "example.com/short",
+			Licenses: map[string]string{"LICENSE": "\n" + testmods.Short(t, "MIT", cut)},
+		}}
+	}
+
+	workspace(t, short(27), nil)
+
+	code, stdout, stderr := run(t, "check", ".", "--allowed_licenses=MIT")
+	if code != 0 || stdout != "" || stderr != "" {
+		t.Errorf("27 words short: exit %d stdout %q stderr %q", code, stdout, stderr)
+	}
+
+	workspace(t, short(28), nil)
+
+	want := []string{"Did not find license for library 'example.com/short'."}
+
+	for _, flags := range [][]string{nil, {"--allowed_licenses=MIT"}, {"--disallowed_types=forbidden"}} {
+		code, _, stderr := run(t, append([]string{"check", "."}, flags...)...)
+		if code != 1 || !slices.Equal(findings(stderr), want) {
+			t.Errorf("28 words short, %v: exit %d, findings %q, want %q", flags, code, findings(stderr), want)
+		}
+	}
+}
+
 // TestContractCheckIgnoreAndIncludeTests: --ignore drops libraries under
 // a path prefix from the check, what they import still checked;
 // --include_tests brings in a module a test file alone imports.

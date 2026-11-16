@@ -70,6 +70,19 @@ func Text(t *testing.T, name string) string {
 	return ""
 }
 
+// Short is the named license's pristine text without its last cut words,
+// on one line.
+func Short(t *testing.T, name string, cut int) string {
+	t.Helper()
+
+	words := strings.Fields(Text(t, name))
+	if cut > len(words) {
+		t.Fatalf("%s has %d words, fewer than the %d to cut", name, len(words), cut)
+	}
+
+	return strings.Join(words[:len(words)-cut], " ")
+}
+
 // Build writes the workspace: the application module importing every
 // module in deps (and testOnly from a test file alone), each dependency a
 // module of its own with its files.
