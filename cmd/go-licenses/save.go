@@ -102,6 +102,8 @@ func save(libs []*licenses.Library, savePath string, force bool) error {
 			if err := copyNotices(lib.LicenseFile, libSaveDir); err != nil {
 				return err
 			}
+		case licenses.RestrictionsUnknown, licenses.RestrictionsNotAllowed:
+			// badLicenses refused these before anything was written.
 		}
 	}
 
@@ -118,6 +120,12 @@ func restrictiveness(lib *licenses.Library) licenses.LicenseRestrictiveness {
 	return licenses.LicenseTypeRestrictiveness(licenseTypes...)
 }
 
+// fulfilled reports whether a save does what asked demands: it shares the
+// code, or the notice, and nothing else.
+func fulfilled(asked licenses.LicenseRestrictiveness) bool {
+	return asked == licenses.RestrictionsShareCode || asked == licenses.RestrictionsShareLicense
+}
+
 // badLicenses is every library a save cannot fulfil, by license type: one
 // with no license identified (Unknown), and one whose licenses include a
 // type that is neither shared as code nor as a notice.
@@ -125,8 +133,7 @@ func badLicenses(libs []*licenses.Library) map[licenses.Type][]*licenses.Library
 	libsWithBadLicenses := make(map[licenses.Type][]*licenses.Library)
 
 	for _, lib := range libs {
-		switch restrictiveness(lib) {
-		case licenses.RestrictionsShareCode, licenses.RestrictionsShareLicense:
+		if fulfilled(restrictiveness(lib)) {
 			continue
 		}
 
@@ -139,9 +146,7 @@ func badLicenses(libs []*licenses.Library) map[licenses.Type][]*licenses.Library
 
 		// Register all bad licenses, so we can print them out at the end.
 		for _, license := range lib.Licenses {
-			switch license.Type {
-			case licenses.Notice, licenses.Permissive, licenses.Unencumbered, licenses.Restricted, licenses.Reciprocal:
-				// these are allowed
+			if fulfilled(licenses.LicenseTypeRestrictiveness(license.Type)) {
 				continue
 			}
 

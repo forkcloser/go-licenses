@@ -34,14 +34,13 @@ const (
 )
 
 func (t Type) String() string {
-	switch t {
-	case Unknown:
-		// licenseclassifier uses an empty string to indicate an unknown license
-		// type, which is unclear to users when printed as a string.
+	// licenseclassifier uses an empty string to indicate an unknown license
+	// type, which is unclear to users when printed as a string.
+	if t == Unknown {
 		return "unknown"
-	default:
-		return string(t)
 	}
+
+	return string(t)
 }
 
 var typeMap = map[string]Type{
