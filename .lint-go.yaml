@@ -157,12 +157,10 @@ golangci:
             - paralleltest # 2
             - testpackage # 1
         - path: ^licenses/find\.go$
-          linters: # 3 findings
+          linters: # 2 findings
             - varnamelen # 2
-            - gocritic # 1
         - path: ^licenses/find_test\.go$
-          linters: # 22 findings
-            - gocritic # 19
+          linters: # 3 findings
             - paralleltest # 2
             - testpackage # 1
         - path: ^licenses/library\.go$
@@ -175,9 +173,8 @@ golangci:
             - paralleltest # 2
             - testpackage # 1
         - path: ^licenses/restrictiveness\.go$
-          linters: # 5 findings
+          linters: # 4 findings
             - revive # 4
-            - gocritic # 1
         - path: ^licenses/types\.go$
           linters: # 2 findings
             - gochecknoglobals # 1
