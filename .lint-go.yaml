@@ -113,10 +113,9 @@ golangci:
             - paralleltest # 2
             - gochecknoglobals # 1
         - path: ^cmd/go-licenses/save\.go$
-          linters: # 6 findings
+          linters: # 5 findings
             - revive # 3
             - gocognit # 1
-            - gosec # 1
             - mnd # 1
         # The vendored licence classifier, measured when it came under the baseline.
         - path: ^internal/third_party/licenseclassifier/assets/embed\.go$
@@ -148,9 +147,8 @@ golangci:
             - varnamelen # 10
             - gocognit # 3
         - path: ^licenses/classifier\.go$
-          linters: # 5 findings
+          linters: # 4 findings
             - revive # 3
-            - gosec # 1
             - iface # 1
         - path: ^licenses/classifier_test\.go$
           linters: # 3 findings

@@ -54,6 +54,7 @@ func (c *googleClassifier) Identify(licensePath string) ([]License, error) {
 		return nil, nil
 	}
 
+	// #nosec G304 -- a license file found beside a package of the build, which the classifier is there to read
 	content, err := os.ReadFile(licensePath)
 	if err != nil {
 		return nil, fmt.Errorf("reading the license: %w", err)
