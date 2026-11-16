@@ -363,6 +363,14 @@ func TestContractTypesAndRestrictiveness(t *testing.T) {
 		{[]licenses.Type{licenses.Notice, licenses.Forbidden}, licenses.RestrictionsNotAllowed},
 		{[]licenses.Type{licenses.ByExceptionOnly}, licenses.RestrictionsNotAllowed},
 		{[]licenses.Type{licenses.Forbidden, licenses.Unknown}, licenses.RestrictionsNotAllowed},
+		{[]licenses.Type{licenses.Permissive}, licenses.RestrictionsShareLicense},
+		{[]licenses.Type{licenses.Unencumbered}, licenses.RestrictionsShareLicense},
+		{[]licenses.Type{licenses.Restricted}, licenses.RestrictionsShareCode},
+		{[]licenses.Type{licenses.Unknown}, licenses.RestrictionsUnknown},
+		{[]licenses.Type{licenses.Forbidden}, licenses.RestrictionsNotAllowed},
+		{[]licenses.Type{licenses.Type("no such type")}, licenses.RestrictionsNotAllowed},
+		{[]licenses.Type{licenses.Notice, licenses.Type("no such type")}, licenses.RestrictionsNotAllowed},
+		{[]licenses.Type{licenses.Restricted, licenses.Notice, licenses.Unknown, licenses.Forbidden}, licenses.RestrictionsNotAllowed},
 	} {
 		if got := licenses.LicenseTypeRestrictiveness(c.types...); got != c.want {
 			t.Errorf("%v: %q, want %q", c.types, got, c.want)

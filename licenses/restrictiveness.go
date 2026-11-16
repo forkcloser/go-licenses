@@ -1,5 +1,7 @@
 package licenses
 
+import "slices"
+
 type LicenseRestrictiveness string
 
 const (
@@ -9,47 +11,39 @@ const (
 	RestrictionsNotAllowed   LicenseRestrictiveness = "NotAllowed"
 )
 
+// LicenseTypeRestrictiveness is what the license types ask together: the
+// most demanding of what each asks, and RestrictionsUnknown for none.
 func LicenseTypeRestrictiveness(licenseTypes ...Type) LicenseRestrictiveness {
 	if len(licenseTypes) == 0 {
-		// No licenses foundm, so we don't know what the restrictions are
 		return RestrictionsUnknown
 	}
 
-	// Find any non-allowed licenses
-	for _, licenseType := range licenseTypes {
-		switch licenseType {
-		case Notice, Permissive, Unencumbered,
-			Restricted, Reciprocal,
-			Unknown:
-			// these are allowed/ handled by following logic
-		default:
-			return RestrictionsNotAllowed
+	// The most demanding first.
+	for _, asked := range []LicenseRestrictiveness{RestrictionsNotAllowed, RestrictionsUnknown, RestrictionsShareCode} {
+		if slices.ContainsFunc(
+			licenseTypes,
+			func(licenseType Type) bool { return restrictivenessOf(licenseType) == asked },
+		) {
+			return asked
 		}
 	}
 
-	// Find unknown licenses
-	for _, licenseType := range licenseTypes {
-		switch licenseType {
-		case Unknown:
-			return RestrictionsUnknown
-		}
+	return RestrictionsShareLicense
+}
+
+// restrictivenessOf is what one license type asks.
+func restrictivenessOf(licenseType Type) LicenseRestrictiveness {
+	switch licenseType {
+	case Notice, Permissive, Unencumbered:
+		return RestrictionsShareLicense
+	case Restricted, Reciprocal:
+		return RestrictionsShareCode
+	case Unknown:
+		return RestrictionsUnknown
+	case ByExceptionOnly, Forbidden:
+		return RestrictionsNotAllowed
 	}
 
-	// Find any licenses that require sharing code
-	for _, licenseType := range licenseTypes {
-		switch licenseType {
-		case Restricted, Reciprocal:
-			return RestrictionsShareCode
-		}
-	}
-
-	// Find any licenses that require sharing license
-	for _, licenseType := range licenseTypes {
-		switch licenseType {
-		case Notice, Permissive, Unencumbered:
-			return RestrictionsShareLicense
-		}
-	}
-
-	panic("unreachable")
+	// A type that is none of the constants.
+	return RestrictionsNotAllowed
 }

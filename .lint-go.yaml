@@ -113,9 +113,8 @@ golangci:
             - paralleltest # 2
             - gochecknoglobals # 1
         - path: ^cmd/go-licenses/save\.go$
-          linters: # 8 findings
+          linters: # 6 findings
             - revive # 3
-            - exhaustive # 2
             - gocognit # 1
             - gosec # 1
             - mnd # 1
@@ -176,13 +175,11 @@ golangci:
             - paralleltest # 2
             - testpackage # 1
         - path: ^licenses/restrictiveness\.go$
-          linters: # 9 findings
-            - exhaustive # 4
+          linters: # 5 findings
             - revive # 4
             - gocritic # 1
         - path: ^licenses/types\.go$
-          linters: # 3 findings
-            - exhaustive # 1
+          linters: # 2 findings
             - gochecknoglobals # 1
             - revive # 1
         - path: ^licenses/types_test\.go$
