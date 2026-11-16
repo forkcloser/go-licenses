@@ -306,8 +306,8 @@ func stringifyLineBuf(
 	for _, re := range ignorableTexts {
 		if re.MatchString(out) {
 			return nil, &Match{
-				Name:       "Copyright",
-				MatchType:  "Copyright",
+				Name:       copyrightMatch,
+				MatchType:  copyrightMatch,
 				Confidence: 1.0,
 				StartLine:  line,
 				EndLine:    line,

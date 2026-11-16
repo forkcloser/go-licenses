@@ -70,6 +70,26 @@ func Text(t *testing.T, name string) string {
 	return ""
 }
 
+// CorpusFiles is every license text of the corpus: the files, by the
+// name of the license each is a text of.
+func CorpusFiles(t *testing.T) map[string][]string {
+	t.Helper()
+
+	files, err := filepath.Glob(filepath.Join(corpus(t), "*", "*"))
+	if err != nil || len(files) == 0 {
+		t.Fatalf("no license text in %s: %v", corpus(t), err)
+	}
+
+	out := map[string][]string{}
+
+	for _, file := range files {
+		name := filepath.Base(filepath.Dir(file))
+		out[name] = append(out[name], file)
+	}
+
+	return out
+}
+
 // Short is the named license's pristine text without its last cut words,
 // on one line.
 func Short(t *testing.T, name string, cut int) string {

@@ -327,6 +327,117 @@ func TestContractIdentifyNamesTheCorpusText(t *testing.T) {
 	}
 }
 
+// TestContractIdentifyNamesEveryCorpusTextAsItself: each text of the
+// corpus is named by its own license and by no other, the ISC text with a
+// paragraph a line included, whose last line holds most of BSD-0-Clause.
+//
+//nolint:paralleltest // Offline sets the Go environment with t.Setenv
+func TestContractIdentifyNamesEveryCorpusTextAsItself(t *testing.T) {
+	testmods.Offline(t)
+
+	classifier, err := licenses.NewClassifier()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for name, files := range testmods.CorpusFiles(t) {
+		for _, file := range files {
+			got, err := classifier.Identify(file)
+			if err != nil {
+				t.Errorf("%s: %v", file, err)
+
+				continue
+			}
+
+			if len(got) != 1 || got[0].Name != name {
+				t.Errorf("%s/%s: %v, want %s alone", name, filepath.Base(file), got, name)
+			}
+		}
+	}
+}
+
+// TestContractIdentifyTextsSharingALine: two texts are both named when
+// one follows the other on a line, whichever is the closer to its
+// license, when both are on one line, and when the words one ends with
+// and the other starts with are written once.
+//
+//nolint:paralleltest // Offline sets the Go environment with t.Setenv
+func TestContractIdentifyTextsSharingALine(t *testing.T) {
+	testmods.Offline(t)
+
+	classifier, err := licenses.NewClassifier()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	mit := strings.TrimSpace(testmods.Text(t, "MIT"))
+	apache := strings.TrimSpace(testmods.Text(t, "Apache-2.0"))
+
+	// seamed is one text, then a second on its last line, the words the
+	// first ends with and the second starts with written once.
+	seamed := func(first, second string, shared int) string {
+		head := strings.TrimSpace(testmods.Text(t, first))
+		tail := strings.TrimSpace(testmods.Text(t, second))
+
+		ends, starts := strings.Fields(head), strings.Fields(tail)
+		word := func(w string) string { return strings.ToLower(strings.Trim(w, ".,;:")) }
+
+		for i := range shared {
+			if word(ends[len(ends)-shared+i]) != word(starts[i]) {
+				t.Fatalf("the premise: %s ends with the %d words %s starts with", first, shared, second)
+			}
+
+			tail = strings.TrimSpace(strings.TrimPrefix(tail, starts[i]))
+		}
+
+		return head + " " + tail
+	}
+
+	dir := t.TempDir()
+
+	for name, c := range map[string]struct {
+		content string
+		want    []string
+	}{
+		"a whole text, then a whole one": {mit + " " + apache, []string{"Apache-2.0", "MIT"}},
+		"a short text, then a whole one": {testmods.Short(t, "GPL-2.0", 40) + " " + mit, []string{"GPL-2.0", "MIT"}},
+		"a whole text, then a short one": {apache + " " + testmods.Short(t, "MIT", 5), []string{"Apache-2.0", "MIT"}},
+		"both on one line": {
+			testmods.Short(t, "GPL-2.0", 40) + " " + testmods.Short(t, "MIT", 0),
+			[]string{"GPL-2.0", "MIT"},
+		},
+		"a word of the seam written once":    {seamed("MIT", "ANTLR", 1), []string{"ANTLR", "MIT"}},
+		"two words of the seam written once": {seamed("BSD-0-Clause", "JTidy", 2), []string{"BSD-0-Clause", "JTidy"}},
+		"a word of the seam written once, both on one line": {
+			strings.Join(strings.Fields(seamed("MIT", "ANTLR", 1)), " "),
+			[]string{"ANTLR", "MIT"},
+		},
+	} {
+		path := filepath.Join(dir, "LICENSE")
+		if err := writeContent(path, c.content); err != nil {
+			t.Fatal(err)
+		}
+
+		found, err := classifier.Identify(path)
+		if err != nil {
+			t.Errorf("%s: %v", name, err)
+
+			continue
+		}
+
+		got := make([]string, len(found))
+		for i, license := range found {
+			got[i] = license.Name
+		}
+
+		slices.Sort(got)
+
+		if !slices.Equal(got, c.want) {
+			t.Errorf("%s: %v, want %v", name, got, c.want)
+		}
+	}
+}
+
 // TestContractIdentifyUntilAFifthOfTheWordsAreGone: a text short of a
 // license's last words, or with its first ones replaced, is named up to a
 // point and by nothing past it, a word apart; words after a whole text
