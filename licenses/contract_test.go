@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -323,6 +324,75 @@ func TestContractIdentifyNamesTheCorpusText(t *testing.T) {
 
 	if _, err := classifier.Identify(filepath.Join(dir, "missing")); err == nil {
 		t.Error("a missing file: no error")
+	}
+}
+
+// TestContractIdentifyUntilAFifthOfTheWordsAreGone: a text short of a
+// license's last words, or with its first ones replaced, is named up to a
+// point and by nothing past it, a word apart; words after a whole text
+// change nothing. The point is not the same share of every text: what
+// gives first is the license's distinct words, of which the file must hold
+// four in five.
+//
+//nolint:paralleltest // Offline sets the Go environment with t.Setenv
+func TestContractIdentifyUntilAFifthOfTheWordsAreGone(t *testing.T) {
+	testmods.Offline(t)
+
+	classifier, err := licenses.NewClassifier()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Words no license text holds, one per position.
+	foreign := func(count int) []string {
+		words := make([]string, count)
+		for i := range words {
+			words[i] = "qq" + strconv.Itoa(i) + "zz"
+		}
+
+		return words
+	}
+
+	headReplaced := func(name string, count int) string {
+		words := strings.Fields(testmods.Text(t, name))
+		copy(words, foreign(count))
+
+		return strings.Join(words, " ")
+	}
+
+	mit := []licenses.License{{Name: "MIT", Type: licenses.Notice}}
+	apache := []licenses.License{{Name: "Apache-2.0", Type: licenses.Notice}}
+
+	dir := t.TempDir()
+
+	for name, c := range map[string]struct {
+		content string
+		want    []licenses.License
+	}{
+		"MIT, 27 words short":            {testmods.Short(t, "MIT", 27), mit},
+		"MIT, 28 words short":            {testmods.Short(t, "MIT", 28), []licenses.License{}},
+		"MIT, 19 words replaced":         {headReplaced("MIT", 19), mit},
+		"MIT, 20 words replaced":         {headReplaced("MIT", 20), []licenses.License{}},
+		"Apache-2.0, 319 words short":    {testmods.Short(t, "Apache-2.0", 319), apache},
+		"Apache-2.0, 320 words short":    {testmods.Short(t, "Apache-2.0", 320), []licenses.License{}},
+		"MIT, 500 words after the text":  {testmods.Text(t, "MIT") + "\n" + strings.Join(foreign(500), " "), mit},
+		"MIT, 500 words before the text": {strings.Join(foreign(500), " ") + "\n" + testmods.Text(t, "MIT"), mit},
+	} {
+		path := filepath.Join(dir, "LICENSE")
+		if err := writeContent(path, c.content); err != nil {
+			t.Fatal(err)
+		}
+
+		got, err := classifier.Identify(path)
+		if err != nil {
+			t.Errorf("%s: %v", name, err)
+
+			continue
+		}
+
+		if !slices.Equal(got, c.want) {
+			t.Errorf("%s: %v, want %v", name, got, c.want)
+		}
 	}
 }
 
