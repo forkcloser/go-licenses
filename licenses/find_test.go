@@ -38,70 +38,70 @@ func TestFindCandidates(t *testing.T) {
 			desc: "licenSe",
 			dir:  "testdata",
 			wantLicensePathCandidates: []string{
-				filepath.Join(wd, "testdata/LICENSE"),
+				filepath.Join(wd, "testdata", "LICENSE"),
 			},
 		},
 		{
 			desc: "licenCe",
 			dir:  "testdata/licence",
 			wantLicensePathCandidates: []string{
-				filepath.Join(wd, "testdata/licence/LICENCE"),
-				filepath.Join(wd, "testdata/LICENSE"),
+				filepath.Join(wd, "testdata", "licence", "LICENCE"),
+				filepath.Join(wd, "testdata", "LICENSE"),
 			},
 		},
 		{
 			desc: "LICENSE.MIT",
 			dir:  "testdata/MIT",
 			wantLicensePathCandidates: []string{
-				filepath.Join(wd, "testdata/MIT/LICENSE.MIT"),
-				filepath.Join(wd, "testdata/LICENSE"),
+				filepath.Join(wd, "testdata", "MIT", "LICENSE.MIT"),
+				filepath.Join(wd, "testdata", "LICENSE"),
 			},
 		},
 		{
 			desc: "COPYING",
 			dir:  "testdata/copying",
 			wantLicensePathCandidates: []string{
-				filepath.Join(wd, "testdata/copying/COPYING"),
-				filepath.Join(wd, "testdata/LICENSE"),
+				filepath.Join(wd, "testdata", "copying", "COPYING"),
+				filepath.Join(wd, "testdata", "LICENSE"),
 			},
 		},
 		{
 			desc: "NOTICE",
 			dir:  "testdata/notice",
 			wantLicensePathCandidates: []string{
-				filepath.Join(wd, "testdata/notice/NOTICE.txt"),
-				filepath.Join(wd, "testdata/LICENSE"),
+				filepath.Join(wd, "testdata", "notice", "NOTICE.txt"),
+				filepath.Join(wd, "testdata", "LICENSE"),
 			},
 		},
 		{
 			desc: "README",
 			dir:  "testdata/readme",
 			wantLicensePathCandidates: []string{
-				filepath.Join(wd, "testdata/readme/README.md"),
-				filepath.Join(wd, "testdata/LICENSE"),
+				filepath.Join(wd, "testdata", "readme", "README.md"),
+				filepath.Join(wd, "testdata", "LICENSE"),
 			},
 		},
 		{
 			desc: "parent dir",
 			dir:  "testdata/internal",
 			wantLicensePathCandidates: []string{
-				filepath.Join(wd, "testdata/LICENSE"),
+				filepath.Join(wd, "testdata", "LICENSE"),
 			},
 		},
 		{
 			desc: "lowercase",
 			dir:  "testdata/lowercase",
 			wantLicensePathCandidates: []string{
-				filepath.Join(wd, "testdata/lowercase/license"),
-				filepath.Join(wd, "testdata/LICENSE"),
+				filepath.Join(wd, "testdata", "lowercase", "license"),
+				filepath.Join(wd, "testdata", "LICENSE"),
 			},
 		},
 		{
 			desc: "license-apache-2.0.txt",
 			dir:  "testdata/license-apache-2.0",
 			wantLicensePathCandidates: []string{
-				filepath.Join(wd, "testdata/license-apache-2.0/LICENSE-APACHE-2.0.txt"),
-				filepath.Join(wd, "testdata/LICENSE"),
+				filepath.Join(wd, "testdata", "license-apache-2.0", "LICENSE-APACHE-2.0.txt"),
+				filepath.Join(wd, "testdata", "LICENSE"),
 			},
 		},
 		{
@@ -109,15 +109,15 @@ func TestFindCandidates(t *testing.T) {
 			dir:     "testdata/proprietary-license",
 			rootDir: "testdata/proprietary-license",
 			wantLicensePathCandidates: []string{
-				filepath.Join(wd, "testdata/proprietary-license/LICENSE"),
+				filepath.Join(wd, "testdata", "proprietary-license", "LICENSE"),
 			},
 		},
 		{
 			desc: "UNLICENSE",
 			dir:  "testdata/unlicense",
 			wantLicensePathCandidates: []string{
-				filepath.Join(wd, "testdata/unlicense/UNLICENSE"),
-				filepath.Join(wd, "testdata/LICENSE"),
+				filepath.Join(wd, "testdata", "unlicense", "UNLICENSE"),
+				filepath.Join(wd, "testdata", "LICENSE"),
 			},
 		},
 	} {

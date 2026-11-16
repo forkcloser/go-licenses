@@ -22,7 +22,7 @@ import (
 	"strings"
 )
 
-var licenseRegexp = regexp.MustCompile(`^(?i)((UN)?LICEN(S|C)E|COPYING|README|NOTICE).*$`)
+var licenseRegexp = regexp.MustCompile(`^(?i)((UN)?LICEN[SC]E|COPYING|README|NOTICE).*$`)
 
 // FindCandidates returns the candidate file path of the license for this package.
 //
