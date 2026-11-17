@@ -22,6 +22,9 @@ import (
 	"strings"
 )
 
+// copyrightMatch is the name and the type of the match a copyright line gives.
+const copyrightMatch = "Copyright"
+
 // Match is the information about a single instance of a detected match.
 type Match struct {
 	Name            string
@@ -162,6 +165,11 @@ func (c *Classifier) match(in io.Reader) (Results, error) {
 			if j == i {
 				break
 			}
+			// Lines are too coarse to tell two texts that follow each other on one
+			// line from one text inside the other: tokens are not.
+			if apart(c, o) {
+				continue
+			}
 			// Make sure to only check containment on licenses that are still in consideration at this point.
 			if contains(c, o) && retain[j] {
 				// The license here can override a previous detection, but that isn't sufficient to be kept
@@ -183,8 +191,10 @@ func (c *Classifier) match(in io.Reader) (Results, error) {
 					keep = false
 				}
 			} else if overlaps(c, o) && retain[j] {
-				// if the ending and start lines exactly overlap, it's OK to keep both
-				if c.StartLine != o.EndLine {
+				// Two texts may share a line, one ending where the other starts,
+				// words of the seam taken by both. A match that lies within the
+				// other's tokens is not that.
+				if c.StartLine != o.EndLine || within(c, o) {
 					keep = false
 				}
 			}
@@ -236,6 +246,24 @@ func LicenseName(in string) string {
 // contains returns true iff b is completely inside a.
 func contains(a, b *Match) bool {
 	return a.StartLine <= b.StartLine && a.EndLine >= b.EndLine
+}
+
+// placed returns true iff both matches hold a position among the tokens of
+// the text. A copyright line is not in the text, and its match holds none.
+func placed(a, b *Match) bool {
+	return a.MatchType != copyrightMatch && b.MatchType != copyrightMatch
+}
+
+// apart returns true iff a and b share no token of the text, or the one
+// where the first ends and the second starts: a word two texts written
+// end to end may both claim.
+func apart(a, b *Match) bool {
+	return placed(a, b) && (a.StartTokenIndex >= b.EndTokenIndex || a.EndTokenIndex <= b.StartTokenIndex)
+}
+
+// within returns true iff the tokens of a are all among those of b.
+func within(a, b *Match) bool {
+	return placed(a, b) && a.StartTokenIndex >= b.StartTokenIndex && a.EndTokenIndex <= b.EndTokenIndex
 }
 
 // returns true iff b <= a <= c.

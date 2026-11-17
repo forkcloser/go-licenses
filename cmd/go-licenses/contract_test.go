@@ -232,6 +232,31 @@ func TestContractCheckAtTheClassifiersLimit(t *testing.T) {
 	}
 }
 
+// TestContractCheckOfTextsSharingALine: a library under the ISC text with
+// a paragraph a line is ISC and nothing else to --allowed_licenses; a
+// library whose file holds a GPL-2.0 text short of its end, then the MIT
+// one on the same line, is refused for the GPL.
+//
+//nolint:paralleltest // workspace enters the module with t.Chdir and sets the Go environment with t.Setenv
+func TestContractCheckOfTextsSharingALine(t *testing.T) {
+	workspace(t, []testmods.Module{{Path: "example.com/isc", Licenses: map[string]string{"LICENSE": "ISC"}}}, nil)
+
+	code, stdout, stderr := run(t, "check", ".", "--allowed_licenses=ISC,MIT")
+	if code != 0 || stdout != "" || stderr != "" {
+		t.Errorf("ISC: exit %d stdout %q stderr %q", code, stdout, stderr)
+	}
+
+	both := "\n" + testmods.Short(t, "GPL-2.0", 40) + " " + testmods.Text(t, "MIT")
+	workspace(t, []testmods.Module{{Path: "example.com/both", Licenses: map[string]string{"LICENSE": both}}}, nil)
+
+	want := []string{"License 'GPL-2.0' of not allowed license type 'Restricted' found for library 'example.com/both'."}
+
+	code, _, stderr = run(t, "check", ".", "--disallowed_types=restricted")
+	if code != 1 || !slices.Equal(findings(stderr), want) {
+		t.Errorf("GPL-2.0 then MIT: exit %d, findings %q, want %q", code, findings(stderr), want)
+	}
+}
+
 // TestContractCheckIgnoreAndIncludeTests: --ignore drops libraries under
 // a path prefix from the check, what they import still checked;
 // --include_tests brings in a module a test file alone imports.
