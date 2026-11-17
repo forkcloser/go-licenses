@@ -14,6 +14,9 @@ Local modifications:
   and `ReadLicenseDir`.
 - The licence texts lose trailing whitespace, carriage returns and trailing blank lines (145 of
   431). The tokenizer drops whitespace, so each text yields the same document as upstream's.
+- The tokenizer tells the end of the text with `errors.Is`, where upstream compares the error, and
+  returns any other read error wrapped. go-licenses hands it a text held in memory, for which
+  neither changes anything.
 - `docDiff` hands go-diff copies of the documents' runes: go-diff writes into the slices it is
   given, and the corpus documents are shared by the matches `Libraries` runs concurrently (a data race
   under `-race`).
@@ -23,7 +26,8 @@ Local modifications:
   follows on its line is now reported beside it, as a second licence is.
 - Upstream keeps two overlapping matches when one starts on the line the other ends on. That stays,
   for two texts whose seam both claim, and no longer covers a match that lies within the other's
-  tokens: BSD-0-Clause was reported inside ISC's last line.
+  tokens: BSD-0-Clause was reported inside ISC's last line. Two texts on one line whose seam is
+  two words they share, written once, are still not both named, as upstream has it.
 - Held to go-licenses' lint baseline like the rest of the module, formatting included. The
   package is named `licenseclassifier`, after its directory; `AddContent` returns the tokenizer's
   error instead of dropping it; parameters nothing read (and the searchset's trace-only `origin`)
