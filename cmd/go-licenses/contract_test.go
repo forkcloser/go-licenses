@@ -14,6 +14,7 @@ import (
 	"sort"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/forkcloser/go-licenses/internal/testmods"
 )
@@ -33,7 +34,11 @@ func TestMain(m *testing.M) {
 
 	contractBinary = filepath.Join(dir, "go-licenses"+exeSuffix())
 
-	build := exec.CommandContext(context.Background(), "go", "build", "-o", contractBinary, ".")
+	// The build has a deadline as every process these tests start has.
+	building, done := context.WithTimeout(context.Background(), buildDeadline)
+	defer done()
+
+	build := exec.CommandContext(building, "go", "build", "-o", contractBinary, ".")
 	if out, err := build.CombinedOutput(); err != nil {
 		panic(string(out))
 	}
@@ -80,12 +85,38 @@ func workspace(t *testing.T, mods, testOnly []testmods.Module) testmods.Workspac
 	return ws
 }
 
+// How long the processes these tests start may take: the build of the
+// command, the download of a module's dependencies, one run of the command.
+const (
+	buildDeadline    = 5 * time.Minute
+	downloadDeadline = 5 * time.Minute
+	runDeadline      = 2 * time.Minute
+)
+
+// child is a command killed at a deadline of its own. A test binary stopped
+// at its timeout does not take its children with it, and one that never
+// ends would run on after it, holding what it holds: so no child's life
+// hangs on the test's context alone, and every deadline is under any
+// timeout a test binary is given.
+func child(t *testing.T, limit time.Duration, name string, args ...string) *exec.Cmd {
+	t.Helper()
+
+	ctx, cancel := context.WithTimeout(t.Context(), limit)
+	t.Cleanup(cancel)
+
+	cmd := exec.CommandContext(ctx, name, args...)
+	// A process the child started may still hold its pipes.
+	cmd.WaitDelay = time.Second
+
+	return cmd
+}
+
 // run runs the binary in the current directory: exit status, stdout,
 // stderr.
 func run(t *testing.T, args ...string) (code int, stdout, stderr string) {
 	t.Helper()
 
-	cmd := exec.CommandContext(t.Context(), contractBinary, args...)
+	cmd := child(t, runDeadline, contractBinary, args...)
 	cmd.Env = os.Environ()
 
 	var out, errOut strings.Builder
