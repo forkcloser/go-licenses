@@ -83,6 +83,10 @@ golangci:
               - golang.org/x/text/cases
               - golang.org/x/text/language
               - github.com/otiai10/copy
+              # The files the command and the library open go through xos:
+              # os, call for call, and on Windows a file that can be renamed
+              # or removed while it is open.
+              - github.com/forkcloser/go-xos
               # The vendored licence classifier's token diff and scoring.
               - github.com/sergi/go-diff/diffmatchpatch
     exclusions:

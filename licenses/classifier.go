@@ -17,7 +17,8 @@ package licenses
 import (
 	"bytes"
 	"fmt"
-	"os"
+
+	"github.com/forkcloser/go-xos"
 
 	"github.com/forkcloser/go-licenses/internal/third_party/licenseclassifier"
 	"github.com/forkcloser/go-licenses/internal/third_party/licenseclassifier/assets"
@@ -55,7 +56,7 @@ func (c *googleClassifier) Identify(licensePath string) ([]License, error) {
 	}
 
 	// #nosec G304 -- a license file found beside a package of the build, which the classifier is there to read
-	content, err := os.ReadFile(licensePath)
+	content, err := xos.ReadFile(licensePath)
 	if err != nil {
 		return nil, fmt.Errorf("reading the license: %w", err)
 	}
