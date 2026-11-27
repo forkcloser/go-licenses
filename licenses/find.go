@@ -16,10 +16,11 @@ package licenses
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
+
+	"github.com/forkcloser/go-xos"
 )
 
 var licenseRegexp = regexp.MustCompile(`^(?i)((UN)?LICEN[SC]E|COPYING|README|NOTICE).*$`)
@@ -65,7 +66,7 @@ func findAllUpwards(dir string, r *regexp.Regexp, stopAt string) ([]string, erro
 
 	// Stop once we go out of the stopAt dir.
 	for within(dir, stopAt) {
-		dirContents, err := os.ReadDir(dir)
+		dirContents, err := xos.ReadDir(dir)
 		if err != nil {
 			return nil, fmt.Errorf("looking for licenses: %w", err)
 		}

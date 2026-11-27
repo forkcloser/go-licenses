@@ -24,6 +24,8 @@ import (
 
 	"github.com/otiai10/copy"
 
+	"github.com/forkcloser/go-xos"
+
 	"github.com/forkcloser/go-licenses/licenses"
 )
 
@@ -80,7 +82,7 @@ func save(libs []*licenses.Library, savePath string, force bool) error {
 
 	// Check that the save path doesn't exist, otherwise it'd end up with a mix of
 	// existing files and the output of this command.
-	if _, err := os.Stat(savePath); err == nil {
+	if _, err := xos.Stat(savePath); err == nil {
 		//nolint:err113 // a refusal that names the path: it is printed, and nothing matches it
 		return fmt.Errorf("%s already exists", savePath)
 	} else if !os.IsNotExist(err) {
@@ -180,7 +182,7 @@ func copyNotices(licensePath, dest string) error {
 
 	src := filepath.Dir(licensePath)
 
-	files, err := os.ReadDir(src)
+	files, err := xos.ReadDir(src)
 	if err != nil {
 		return fmt.Errorf("looking for notices beside %s: %w", licensePath, err)
 	}
